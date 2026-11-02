@@ -13,7 +13,7 @@ if [[ "$action" == up ]]; then
   exit
 fi
 if [[ "$action" == down ]]; then
-  "${compose[@]}" down
+  "${compose[@]}" --profile ui down
   exit
 fi
 if [[ "$store" != age && "$store" != neo4j && "$store" != both ]]; then

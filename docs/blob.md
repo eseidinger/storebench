@@ -42,3 +42,5 @@ The systems have different transaction, concurrency, and storage semantics. Post
 - `implementations/native/blob/postgresql/`: generated SQL seed, operations, and verification.
 - `scripts/blob_rustfs.py`: AWS CLI S3 operations and byte-level verification.
 - `scripts/blob.sh`: workflow wrapper.
+
+Interactive access to both stores is listed in [local store access](access.md).

@@ -42,3 +42,5 @@ PostgreSQL has no ANN index in this slice, so its nearest-neighbor query is exac
 - `scripts/vector.sh`: workflow wrapper.
 
 The Compose profile starts both stores for functional checking. A future benchmark should measure one target at a time, use larger and varied vector datasets, run an exact ground-truth search, compare ANN results at matched Recall@k, and report index build time, storage, resource limits, and independent measurements. The [Qdrant query API](https://api.qdrant.tech/api-reference/search/query-points/) documents the exact-search and filter parameters; the [pgvector reference](https://github.com/pgvector/pgvector) documents cosine operators and HNSW indexing.
+
+Interactive access to both stores is listed in [local store access](access.md).

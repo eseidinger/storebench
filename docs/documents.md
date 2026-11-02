@@ -50,3 +50,5 @@ CouchDB does not provide a single-field server-side patch for this document. The
 - `scripts/documents.sh`: command wrapper.
 
 The Compose profile starts both stores for functional comparison. Later performance runs should start and measure one target at a time, record effective resource limits and versions, and use larger datasets and independent repetitions as specified in the main README.
+
+Interactive access to both stores is listed in [local store access](access.md).

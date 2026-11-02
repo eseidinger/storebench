@@ -34,6 +34,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    profiles: [ui]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: storebench@example.com
+      PGADMIN_DEFAULT_PASSWORD: storebench_local
+      PGADMIN_DISABLE_POSTFIX: "true"
+    ports:
+      - "127.0.0.1:5055:80"
+    cpus: 1
+    mem_limit: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:3.9.0
+    profiles: [ui]
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "127.0.0.1:5602:5601"
+    cpus: 1
+    mem_limit: 2g
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   opensearch_data:

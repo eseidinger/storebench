@@ -14,7 +14,7 @@ if [[ "$action" == up ]]; then
   exit
 fi
 if [[ "$action" == down ]]; then
-  "${compose[@]}" down
+  "${compose[@]}" --profile ui down
   exit
 fi
 if [[ "$store" != postgres && "$store" != rustfs && "$store" != both ]]; then

@@ -31,6 +31,8 @@ The first runs will use local Docker Compose directly. Results may later inform 
 
 Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
 
+Interactive database tools and built-in web interfaces are listed in [local store access](docs/access.md).
+
 ## Stores and representative use cases
 
 ### Core scope

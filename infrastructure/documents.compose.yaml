@@ -35,6 +35,21 @@ services:
       timeout: 3s
       retries: 30
 
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    profiles: [ui]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: storebench@example.com
+      PGADMIN_DEFAULT_PASSWORD: storebench_local
+      PGADMIN_DISABLE_POSTFIX: "true"
+    ports:
+      - "127.0.0.1:5053:80"
+    cpus: 1
+    mem_limit: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   couchdb_data:

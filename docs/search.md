@@ -43,3 +43,5 @@ The fixture has deliberately unambiguous ranked results. It does not establish i
 - `implementations/native/search/opensearch/`: index mapping and bulk payload.
 - `scripts/search_opensearch.py`: direct OpenSearch REST operations and verification.
 - `scripts/search.sh`: workflow wrapper.
+
+Interactive access to both stores is listed in [local store access](access.md).

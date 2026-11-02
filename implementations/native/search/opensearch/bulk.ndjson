@@ -1,0 +1,12 @@
+{"index":{"_id":"1"}}
+{"title":"Vector search guide","body":"Find similar documents with embeddings.","category":"guide"}
+{"index":{"_id":"2"}}
+{"title":"Search operations","body":"Full text search queries use tokens.","category":"guide"}
+{"index":{"_id":"3"}}
+{"title":"Database indexing","body":"Indexes speed up database filters.","category":"article"}
+{"index":{"_id":"4"}}
+{"title":"Graph traversal","body":"Explore package dependency paths.","category":"article"}
+{"index":{"_id":"5"}}
+{"title":"Storage overview","body":"Store and retrieve documents.","category":"guide"}
+{"index":{"_id":"6"}}
+{"title":"Vector indexing","body":"Approximate nearest neighbor indexes for embeddings.","category":"article"}

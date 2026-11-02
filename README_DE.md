@@ -27,7 +27,7 @@ Zunächst werden Einzelinstanzen untersucht. Hochverfügbarkeit, verteilte Clust
 
 StoreBench ist ein eigenständiges Experimentierprojekt für den Data-Store-Katalog der Developer Platform. Die vorhandenen Plattformunterlagen nennen Dokument-, Graph- und Vektorlabs als mögliche Erweiterungen; sie belegen noch keinen bereitgestellten Katalog spezialisierter Stores. Die nachfolgende Auswahl ist deshalb ein Vorschlag und keine Aussage über bereits verfügbare Plattformservices.
 
-Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
+Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md) und [Volltextsuche](docs/search.md) vorhanden. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
 
 ## Stores und typische Use Cases
 
@@ -38,6 +38,7 @@ Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse k�
 | Dokumente | CouchDB | JSONB mit passenden GIN-/Ausdrucksindizes; eine relationale Variante als separates Experiment | Produktkatalog mit variablen Attributen: Produkte anlegen, verschachtelte Felder filtern, Teiländerungen durchführen und Kategorien aggregieren. |
 | Graphen | Neo4j | Knoten-/Kantentabellen, indizierte Joins und rekursive CTEs | Abhängigkeitsanalyse von Softwarepaketen: direkte und transitive Abhängigkeiten, Auswirkungen einer Änderung und begrenzte Pfadsuche. |
 | Vektoren | Qdrant | PostgreSQL mit pgvector; exakte Suche sowie geeigneter ANN-Index | Ähnliche Dokumente finden: Top-k-Nachbarn, Metadatenfilter, Vektoren aktualisieren und Trefferqualität bewerten. |
+| Volltextsuche | OpenSearch | `tsvector`, `tsquery`, GIN und Ranking | Wissensartikel durchsuchen: Volltextabfragen, Filter, Ranking und Wiederfinden nach Indexaktualisierung. |
 
 PostgreSQL-JSONB unterstützt Indexierung; rekursive CTEs bilden eine Grundlage für Graphabfragen. pgvector ist eine separat ausgewiesene Erweiterung und gehört nicht zum PostgreSQL-Kern. Technische Grundlagen: [JSONB](https://www.postgresql.org/docs/current/datatype-json.html), [rekursive Abfragen](https://www.postgresql.org/docs/current/queries-with.html), [pgvector](https://github.com/pgvector/pgvector).
 
@@ -46,10 +47,9 @@ PostgreSQL-JSONB unterstützt Indexierung; rekursive CTEs bilden eine Grundlage 
 | Bereich | Kandidat | PostgreSQL-Vergleich | Typischer Use Case |
 | --- | --- | --- | --- |
 | Key-Value / kurzlebiger Zustand | Redis | Tabelle mit Primärschlüssel, atomaren Updates und expliziter Ablauf-/Bereinigungslogik | Session-Lookups, TTL und atomare Zähler bei konkurrierenden Zugriffen. Cache- und dauerhafte Profile getrennt betrachten. |
-| Volltextsuche | OpenSearch | `tsvector`, `tsquery`, GIN und Ranking | Wissensartikel durchsuchen, filtern, gewichten und nach Änderungen wiederfinden. |
 | Analytik | ClickHouse | Relationale Faktentabelle, Partitionierung und bedarfsgerechte Indizes | Ereignisdaten ingestieren und über Zeiträume, Kategorien und hohe Kardinalitäten aggregieren. |
 
-Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernumfang. Für Volltextsuche ist die [PostgreSQL-Volltextsuche](https://www.postgresql.org/docs/current/textsearch.html) die funktionale Ausgangsbasis. Weitere Stores werden nur mit eigenem Workload und Vergleichsvertrag aufgenommen.
+Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernumfang. Die [PostgreSQL-Volltextsuche](https://www.postgresql.org/docs/current/textsearch.html) ist die funktionale Ausgangsbasis für den OpenSearch-Vergleich. Weitere Stores werden nur mit eigenem Workload und Vergleichsvertrag aufgenommen.
 
 ## Drei Implementierungswege
 
@@ -61,6 +61,7 @@ Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernum
 | CouchDB | Versionierte REST-Requests, Mango-Abfragen und Views | Direkter HTTP-Client | Java-HTTP-Client aus Kotlin |
 | Neo4j | Cypher-Dateien über `cypher-shell` | Neo4j-Python-Treiber | Neo4j-Java-Treiber aus Kotlin |
 | Qdrant | Versionierte JSON-Requests gegen REST, per Skript ausgeführt | Qdrant-Python-Client | Qdrant-Java-Client aus Kotlin |
+| OpenSearch | Versionierte JSON-Requests gegen die Such-REST-API | OpenSearch-Python-Client | OpenSearch-Java-Client aus Kotlin |
 
 Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/).
 
@@ -75,8 +76,9 @@ Jeder Workload erhält einen versionierten Vertrag mit Eingaben, erwarteten Erge
 - **Dokumente:** gleiche Feldtypen, Null-/Missing-Semantik, Filter, Projektionen und Änderungsregeln. JSONB- und relationale PostgreSQL-Modelle erhalten separate Resultate.
 - **Graphen:** gleiche Richtung, maximale Pfadtiefe, Zyklusbehandlung und Duplikatregeln. Erreichbarkeit, kürzeste Pfade und Aufzählung aller Pfade sind unterschiedliche Workloads.
 - **Vektoren:** dieselben vorab erzeugten Embeddings, Distanzfunktion, Filter und Top-k-Werte. Ein exakter Referenzlauf liefert die Ground Truth. ANN-Varianten werden bei vergleichbarem Recall@k bewertet; als erster Zielwert gilt mindestens 0,95. Embedding-Erzeugung liegt außerhalb der Datenbankmessung. pgvector dokumentiert den Zusammenhang zwischen ANN-Parametern, Recall und Geschwindigkeit in seiner [Referenz](https://github.com/pgvector/pgvector).
+- **Volltextsuche:** Analyzer, Tokenisierung, Sprache, Filter, Ranking-Regeln und Ergebnislimits abgleichen. Relevanz und Sichtbarkeit nach Änderungen getrennt von der Abfragelatenz messen.
 - **Dauerhaftigkeit:** Commit-Bestätigung, Flush-/Journal-Verhalten und Sichtbarkeit nach Schreiboperationen werden dokumentiert. Nicht gleichwertige Garantien werden getrennt berichtet.
-- **Spätere Such- und TTL-Workloads:** Relevanz, Indexaktualität und logisches Ablaufen versus physischer Löschung sind zusätzliche Qualitätsdimensionen.
+- **Spätere TTL-Workloads:** Logisches Ablaufen versus physischer Löschung ist eine zusätzliche Qualitätsdimension.
 
 Optimierte Indizes und realistische Einstellungen sind auf beiden Seiten erlaubt. Standardkonfiguration und Tuning werden getrennt gemessen; Aufbauzeit, Speicherbedarf und Schreibkosten der Optimierungen gehören zum Ergebnis.
 
@@ -185,7 +187,7 @@ storebench/
 └── results/                # Manifeste, Rohdaten und generierte Berichte
 ```
 
-Dies ist eine Zielstruktur. Aktuell existiert nur diese Projektbeschreibung. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
+Dies ist eine Zielstruktur. Die vier Kern-Use-Cases besitzen lokale Compose-Umgebungen und Funktionsskripte; weitere Bausteine sind geplant. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
 
 ## Umsetzung und Abnahmekriterien
 
@@ -194,6 +196,7 @@ Dies ist eine Zielstruktur. Aktuell existiert nur diese Projektbeschreibung. Die
 | 1 — Messfundament und Dokumente | Docker-Profile, Generator, CouchDB/JSONB, drei Implementierungswege, Direkt- und Anwendungsmessung | Ein sauberer Checkout reproduziert einen vollständigen Lauf mit validierten Ergebnissen, wirksamen Limits und Bericht. |
 | 2 — Graphen | Neo4j gegen PostgreSQL, mehrere Tiefen und Gradverteilungen | Alle drei Implementierungswege liefern die vereinbarten Ergebnisse; Abfragepläne und Sättigungsmessungen liegen vor. |
 | 3 — Vektoren | Qdrant gegen pgvector, exakte Referenz und ANN-Profile | Recall, Filtersemantik und Protokolle sind dokumentiert; Performance wird bei vergleichbarer Qualität ausgewertet. |
-| 4 — Erweiterungen und Transfer | Ausgewählte Redis-, Such- oder Analytik-Workloads; Empfehlungen für die Developer Platform | Jede Empfehlung benennt Einsatzgrenzen, Ressourcenbedarf, Integrationsaufwand und die zugrunde liegenden Messläufe. |
+| 4 — Volltextsuche | OpenSearch gegen PostgreSQL-Volltextsuche, abgestimmte Analyzer und Relevanzprüfungen | Suchergebnisse und Sichtbarkeit nach Änderungen erfüllen den vereinbarten Vertrag; Indexkosten und nachhaltige Performance sind dokumentiert. |
+| 5 — Erweiterungen und Transfer | Ausgewählte Redis- oder Analytik-Workloads; Empfehlungen für die Developer Platform | Jede Empfehlung benennt Einsatzgrenzen, Ressourcenbedarf, Integrationsaufwand und die zugrunde liegenden Messläufe. |
 
-Das Projekt ist im Kernumfang erfolgreich, wenn Dokument-, Graph- und Vektor-Use-Case jeweils als native Skripte, in Python und in Kotlin vorliegen, gegen PostgreSQL geprüft wurden und vollständig reproduzierbare Berichte liefern. Auch das Ergebnis „PostgreSQL genügt“ ist ein wertvolles Resultat.
+Das Projekt ist im Kernumfang erfolgreich, wenn die Use Cases für Dokumente, Graphen, Vektoren und Volltextsuche jeweils als native Skripte, in Python und in Kotlin vorliegen, gegen PostgreSQL geprüft wurden und vollständig reproduzierbare Berichte liefern. Auch das Ergebnis „PostgreSQL genügt“ ist ein wertvolles Resultat.

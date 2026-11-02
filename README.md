@@ -29,7 +29,7 @@ StoreBench is an independent experimental project for the Developer Platform's d
 
 The first runs will use local Docker Compose directly. Results may later inform platform architecture decisions, resource profiles, and examples. Benchmark runs do not depend on a platform deployment. Context: [product overview](../developer-platform/docs/product/overview.md) and [UC-05: compare technical alternatives](../developer-platform/docs/product/use-cases.md).
 
-Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), and [similar documents with vectors](docs/vector.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
+Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), and [full-text search](docs/search.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
 
 ## Stores and representative use cases
 
@@ -40,6 +40,7 @@ Executable slices now include [documents](docs/documents.md), [graph package dep
 | Documents | CouchDB | JSONB with suitable GIN/expression indexes; a relational model as a separate experiment | Product catalog with variable attributes: create products, filter nested fields, apply partial updates, and aggregate categories. |
 | Graphs | Neo4j | Node/edge tables, indexed joins, and recursive CTEs | Software package dependency analysis: direct and transitive dependencies, change impact, and bounded path searches. |
 | Vectors | Qdrant | PostgreSQL with pgvector; exact search and a suitable ANN index | Find similar documents: top-k neighbors, metadata filters, vector updates, and result quality assessment. |
+| Full-text search | OpenSearch | `tsvector`, `tsquery`, GIN, and ranking | Search knowledge articles: full-text queries, filters, ranking, and finding updated articles after indexing. |
 
 PostgreSQL JSONB supports indexing, and recursive CTEs provide a basis for graph queries. pgvector is a separately identified extension, not part of PostgreSQL core. Technical references: [JSONB](https://www.postgresql.org/docs/current/datatype-json.html), [recursive queries](https://www.postgresql.org/docs/current/queries-with.html), and [pgvector](https://github.com/pgvector/pgvector).
 
@@ -48,10 +49,9 @@ PostgreSQL JSONB supports indexing, and recursive CTEs provide a basis for graph
 | Area | Candidate | PostgreSQL comparison | Representative use case |
 | --- | --- | --- | --- |
 | Key-value / short-lived state | Redis | Primary-key table, atomic updates, and explicit expiration/cleanup logic | Session lookups, TTL, and atomic counters under concurrent access. Evaluate cache and persistent profiles separately. |
-| Full-text search | OpenSearch | `tsvector`, `tsquery`, GIN, and ranking | Search, filter, rank, and rediscover knowledge articles after updates. |
 | Analytics | ClickHouse | Relational fact table, partitioning, and indexes as needed | Ingest event data and aggregate by time range, category, and high-cardinality dimensions. |
 
-Extensions follow only after a complete benchmark path exists for the core scope. [PostgreSQL full-text search](https://www.postgresql.org/docs/current/textsearch.html) is the functional baseline for search. Additional stores require their own workload and comparison contract.
+Extensions follow only after a complete benchmark path exists for the core scope. [PostgreSQL full-text search](https://www.postgresql.org/docs/current/textsearch.html) is the functional baseline for the OpenSearch comparison. Additional stores require their own workload and comparison contract.
 
 ## Three implementation paths
 
@@ -63,6 +63,7 @@ Extensions follow only after a complete benchmark path exists for the core scope
 | CouchDB | Versioned REST requests, Mango queries, and views | Direct HTTP client | Java HTTP client from Kotlin |
 | Neo4j | Cypher files through `cypher-shell` | Neo4j Python driver | Neo4j Java driver from Kotlin |
 | Qdrant | Versioned JSON requests to REST, executed by a script | Qdrant Python client | Qdrant Java client from Kotlin |
+| OpenSearch | Versioned JSON requests to the search REST API | OpenSearch Python client | OpenSearch Java client from Kotlin |
 
 Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), and [Qdrant clients](https://api.qdrant.tech/).
 
@@ -77,8 +78,9 @@ Each workload has a versioned contract specifying inputs, expected results, orde
 - **Documents:** Match field types, null/missing semantics, filters, projections, and update rules. JSONB and relational PostgreSQL models receive separate results.
 - **Graphs:** Match direction, maximum path depth, cycle handling, and duplicate rules. Reachability, shortest paths, and enumeration of all paths are distinct workloads.
 - **Vectors:** Use the same precomputed embeddings, distance metric, filters, and top-k values. An exact reference run provides ground truth. ANN variants are evaluated at comparable Recall@k, with an initial target of at least 0.95. Embedding generation is outside the database measurement. The [pgvector reference](https://github.com/pgvector/pgvector) documents the relationship between ANN parameters, recall, and speed.
+- **Full-text search:** Match analyzers, tokenization, language, filters, ranking rules, and result limits. Measure relevance and visibility after updates separately from query latency.
 - **Durability:** Document commit acknowledgment, flush/journal behavior, and visibility after writes. Report unequal guarantees separately.
-- **Later search and TTL workloads:** Relevance, index freshness, and logical expiration versus physical deletion add quality dimensions.
+- **Later TTL workloads:** Logical expiration versus physical deletion adds quality dimensions.
 
 Optimized indexes and realistic settings are allowed on both sides. Default configuration and tuning are measured separately; build time, storage, and write costs of optimizations are part of the result.
 
@@ -187,7 +189,7 @@ storebench/
 └── results/                # Manifests, raw data, generated reports
 ```
 
-This is a target structure. The documents, graph, and vector use cases have local Compose environments and functional scripts; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
+This is a target structure. The documents, graph, vector, and full-text search use cases have local Compose environments and functional scripts; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
 
 ## Implementation phases and acceptance criteria
 
@@ -196,6 +198,7 @@ This is a target structure. The documents, graph, and vector use cases have loca
 | 1 — Measurement foundation and documents | Docker profiles, generator, CouchDB/JSONB, three implementation paths, direct and application measurements | A clean checkout reproduces a complete run with validated results, effective limits, and a report. |
 | 2 — Graphs | Neo4j versus PostgreSQL, multiple depths and degree distributions | All three implementation paths return the agreed results; query plans and saturation measurements are available. |
 | 3 — Vectors | Qdrant versus pgvector, exact reference and ANN profiles | Recall, filter semantics, and protocols are documented; performance is assessed at comparable quality. |
-| 4 — Extensions and transfer | Selected Redis, search, or analytics workloads; recommendations for the Developer Platform | Each recommendation identifies use limits, resource needs, integration effort, and the supporting runs. |
+| 4 — Full-text search | OpenSearch versus PostgreSQL full-text search, matched analyzers and relevance checks | Search results and update visibility meet the agreed contract; indexing costs and sustained performance are documented. |
+| 5 — Extensions and transfer | Selected Redis or analytics workloads; recommendations for the Developer Platform | Each recommendation identifies use limits, resource needs, integration effort, and the supporting runs. |
 
-The core scope succeeds when document, graph, and vector use cases each exist as native scripts, in Python, and in Kotlin, have been checked against PostgreSQL, and produce fully reproducible reports. “PostgreSQL is sufficient” is also a valuable result.
+The core scope succeeds when document, graph, vector, and full-text search use cases each exist as native scripts, in Python, and in Kotlin, have been checked against PostgreSQL, and produce fully reproducible reports. “PostgreSQL is sufficient” is also a valuable result.

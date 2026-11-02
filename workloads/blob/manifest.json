@@ -1,0 +1,11 @@
+{
+  "bucket": "storebench-blobs",
+  "objects": [
+    {"key": "notes/hello.txt", "kind": "text", "value": "Hello StoreBench!\n", "content_type": "text/plain", "owner": "storebench"},
+    {"key": "images/pattern.bin", "kind": "sha256_pattern", "size": 1024, "content_type": "application/octet-stream", "owner": "storebench"},
+    {"key": "empty.bin", "kind": "empty", "content_type": "application/octet-stream", "owner": "storebench"}
+  ],
+  "overwrite": {"key": "notes/hello.txt", "kind": "text", "value": "Updated StoreBench!\n", "content_type": "text/plain", "owner": "storebench"},
+  "range": {"key": "images/pattern.bin", "start": 100, "end": 199},
+  "delete": "empty.bin"
+}

@@ -1,0 +1,36 @@
+name: storebench-blob
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: storebench
+      POSTGRES_USER: storebench
+      POSTGRES_PASSWORD: storebench_local
+    ports:
+      - "127.0.0.1:5436:5432"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U storebench -d storebench"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rustfs:
+    image: rustfs/rustfs:1.0.3
+    command: /data
+    environment:
+      RUSTFS_ACCESS_KEY: storebench_local
+      RUSTFS_SECRET_KEY: storebench_secret_local
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "false"
+    ports:
+      - "127.0.0.1:9002:9000"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - rustfs_data:/data
+volumes:
+  postgres_data:
+  rustfs_data:

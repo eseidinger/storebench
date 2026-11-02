@@ -29,7 +29,7 @@ StoreBench is an independent experimental project for the Developer Platform's d
 
 The first runs will use local Docker Compose directly. Results may later inform platform architecture decisions, resource profiles, and examples. Benchmark runs do not depend on a platform deployment. Context: [product overview](../developer-platform/docs/product/overview.md) and [UC-05: compare technical alternatives](../developer-platform/docs/product/use-cases.md).
 
-Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), and [full-text search](docs/search.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
+Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
 
 ## Stores and representative use cases
 
@@ -192,7 +192,7 @@ storebench/
 └── results/                # Manifests, raw data, generated reports
 ```
 
-This is a target structure. The documents, graph, vector, and full-text search use cases have local Compose environments and functional scripts; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
+This is a target structure. The documents, graph, vector, full-text search, and blob storage use cases have local Compose environments and functional scripts; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
 
 ## Implementation phases and acceptance criteria
 

@@ -27,7 +27,7 @@ Zunächst werden Einzelinstanzen untersucht. Hochverfügbarkeit, verteilte Clust
 
 StoreBench ist ein eigenständiges Experimentierprojekt für den Data-Store-Katalog der Developer Platform. Die vorhandenen Plattformunterlagen nennen Dokument-, Graph- und Vektorlabs als mögliche Erweiterungen; sie belegen noch keinen bereitgestellten Katalog spezialisierter Stores. Die nachfolgende Auswahl ist deshalb ein Vorschlag und keine Aussage über bereits verfügbare Plattformservices.
 
-Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md) und [Volltextsuche](docs/search.md) vorhanden. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
+Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
 
 ## Stores und typische Use Cases
 
@@ -190,7 +190,7 @@ storebench/
 └── results/                # Manifeste, Rohdaten und generierte Berichte
 ```
 
-Dies ist eine Zielstruktur. Die vier Kern-Use-Cases besitzen lokale Compose-Umgebungen und Funktionsskripte; weitere Bausteine sind geplant. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
+Dies ist eine Zielstruktur. Die fünf Kern-Use-Cases besitzen lokale Compose-Umgebungen und Funktionsskripte; weitere Bausteine sind geplant. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
 
 ## Umsetzung und Abnahmekriterien
 

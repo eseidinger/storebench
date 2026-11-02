@@ -41,6 +41,7 @@ Executable slices now include [documents](docs/documents.md), [graph package dep
 | Graphs | Neo4j | Node/edge tables, indexed joins, and recursive CTEs | Software package dependency analysis: direct and transitive dependencies, change impact, and bounded path searches. |
 | Vectors | Qdrant | PostgreSQL with pgvector; exact search and a suitable ANN index | Find similar documents: top-k neighbors, metadata filters, vector updates, and result quality assessment. |
 | Full-text search | OpenSearch | `tsvector`, `tsquery`, GIN, and ranking | Search knowledge articles: full-text queries, filters, ranking, and finding updated articles after indexing. |
+| Blob storage | RustFS (S3-compatible API) | PostgreSQL `bytea` with metadata columns; large objects as a separate experiment | Store and retrieve files by key: upload, full and range reads, metadata lookup, overwrite, and delete. |
 
 PostgreSQL JSONB supports indexing, and recursive CTEs provide a basis for graph queries. pgvector is a separately identified extension, not part of PostgreSQL core. Technical references: [JSONB](https://www.postgresql.org/docs/current/datatype-json.html), [recursive queries](https://www.postgresql.org/docs/current/queries-with.html), and [pgvector](https://github.com/pgvector/pgvector).
 
@@ -64,8 +65,9 @@ Extensions follow only after a complete benchmark path exists for the core scope
 | Neo4j | Cypher files through `cypher-shell` | Neo4j Python driver | Neo4j Java driver from Kotlin |
 | Qdrant | Versioned JSON requests to REST, executed by a script | Qdrant Python client | Qdrant Java client from Kotlin |
 | OpenSearch | Versioned JSON requests to the search REST API | OpenSearch Python client | OpenSearch Java client from Kotlin |
+| RustFS | S3-compatible requests through a CLI or signed HTTP script | AWS SDK for Python (Boto3) with a RustFS endpoint | AWS SDK for Java from Kotlin with a RustFS endpoint |
 
-Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), and [Qdrant clients](https://api.qdrant.tech/).
+Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant clients](https://api.qdrant.tech/), and [RustFS S3 compatibility](https://docs.rustfs.com/en/reference/s3-compatibility).
 
 Each variant includes setup, data loading, operations, and result validation. The first language baseline uses direct drivers without an ORM or substantial application framework. Coroutine, async, pooling, and framework variants are separate experiments so their effects remain visible.
 
@@ -79,6 +81,7 @@ Each workload has a versioned contract specifying inputs, expected results, orde
 - **Graphs:** Match direction, maximum path depth, cycle handling, and duplicate rules. Reachability, shortest paths, and enumeration of all paths are distinct workloads.
 - **Vectors:** Use the same precomputed embeddings, distance metric, filters, and top-k values. An exact reference run provides ground truth. ANN variants are evaluated at comparable Recall@k, with an initial target of at least 0.95. Embedding generation is outside the database measurement. The [pgvector reference](https://github.com/pgvector/pgvector) documents the relationship between ANN parameters, recall, and speed.
 - **Full-text search:** Match analyzers, tokenization, language, filters, ranking rules, and result limits. Measure relevance and visibility after updates separately from query latency.
+- **Blob storage:** Match object bytes, keys, metadata, overwrite/delete behavior, range boundaries, and visibility after writes. Compare PostgreSQL `bytea` and RustFS through the same file-oriented contract; report transaction and multipart semantics separately.
 - **Durability:** Document commit acknowledgment, flush/journal behavior, and visibility after writes. Report unequal guarantees separately.
 - **Later TTL workloads:** Logical expiration versus physical deletion adds quality dimensions.
 
@@ -199,6 +202,7 @@ This is a target structure. The documents, graph, vector, and full-text search u
 | 2 — Graphs | Neo4j versus PostgreSQL, multiple depths and degree distributions | All three implementation paths return the agreed results; query plans and saturation measurements are available. |
 | 3 — Vectors | Qdrant versus pgvector, exact reference and ANN profiles | Recall, filter semantics, and protocols are documented; performance is assessed at comparable quality. |
 | 4 — Full-text search | OpenSearch versus PostgreSQL full-text search, matched analyzers and relevance checks | Search results and update visibility meet the agreed contract; indexing costs and sustained performance are documented. |
-| 5 — Extensions and transfer | Selected Redis or analytics workloads; recommendations for the Developer Platform | Each recommendation identifies use limits, resource needs, integration effort, and the supporting runs. |
+| 5 — Blob storage | RustFS versus PostgreSQL `bytea`, varied object sizes and read/write mixes | Bytes, range reads, metadata, and overwrite/delete behavior match the contract; throughput, latency, and storage footprint are reported. |
+| 6 — Extensions and transfer | Selected Redis or analytics workloads; recommendations for the Developer Platform | Each recommendation identifies use limits, resource needs, integration effort, and the supporting runs. |
 
-The core scope succeeds when document, graph, vector, and full-text search use cases each exist as native scripts, in Python, and in Kotlin, have been checked against PostgreSQL, and produce fully reproducible reports. “PostgreSQL is sufficient” is also a valuable result.
+The core scope succeeds when document, graph, vector, full-text search, and blob storage use cases each exist as native scripts, in Python, and in Kotlin, have been checked against PostgreSQL, and produce fully reproducible reports. “PostgreSQL is sufficient” is also a valuable result.

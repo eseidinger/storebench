@@ -39,6 +39,7 @@ Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graph
 | Graphen | Neo4j | Knoten-/Kantentabellen, indizierte Joins und rekursive CTEs | Abhängigkeitsanalyse von Softwarepaketen: direkte und transitive Abhängigkeiten, Auswirkungen einer Änderung und begrenzte Pfadsuche. |
 | Vektoren | Qdrant | PostgreSQL mit pgvector; exakte Suche sowie geeigneter ANN-Index | Ähnliche Dokumente finden: Top-k-Nachbarn, Metadatenfilter, Vektoren aktualisieren und Trefferqualität bewerten. |
 | Volltextsuche | OpenSearch | `tsvector`, `tsquery`, GIN und Ranking | Wissensartikel durchsuchen: Volltextabfragen, Filter, Ranking und Wiederfinden nach Indexaktualisierung. |
+| Blob-Speicherung | RustFS (S3-kompatible API) | PostgreSQL `bytea` mit Metadatenspalten; Large Objects als separates Experiment | Dateien per Schlüssel speichern und lesen: Upload, vollständiges und bereichsweises Lesen, Metadatenabfrage, Überschreiben und Löschen. |
 
 PostgreSQL-JSONB unterstützt Indexierung; rekursive CTEs bilden eine Grundlage für Graphabfragen. pgvector ist eine separat ausgewiesene Erweiterung und gehört nicht zum PostgreSQL-Kern. Technische Grundlagen: [JSONB](https://www.postgresql.org/docs/current/datatype-json.html), [rekursive Abfragen](https://www.postgresql.org/docs/current/queries-with.html), [pgvector](https://github.com/pgvector/pgvector).
 
@@ -62,8 +63,9 @@ Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernum
 | Neo4j | Cypher-Dateien über `cypher-shell` | Neo4j-Python-Treiber | Neo4j-Java-Treiber aus Kotlin |
 | Qdrant | Versionierte JSON-Requests gegen REST, per Skript ausgeführt | Qdrant-Python-Client | Qdrant-Java-Client aus Kotlin |
 | OpenSearch | Versionierte JSON-Requests gegen die Such-REST-API | OpenSearch-Python-Client | OpenSearch-Java-Client aus Kotlin |
+| RustFS | S3-kompatible Requests per CLI oder signiertem HTTP-Skript | AWS SDK für Python (Boto3) mit RustFS-Endpunkt | AWS SDK für Java aus Kotlin mit RustFS-Endpunkt |
 
-Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/).
+Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/), [RustFS-S3-Kompatibilität](https://docs.rustfs.com/en/reference/s3-compatibility).
 
 Jede Variante enthält Setup, Dateneinspielung, Operationen und Ergebnisvalidierung. Die erste Sprachbaseline verwendet direkte Treiber ohne ORM oder umfangreiches Anwendungsframework. Coroutine-, Async-, Pooling- und Framework-Varianten werden als eigene Versuche ausgewiesen, damit ihre Effekte erkennbar bleiben.
 
@@ -77,6 +79,7 @@ Jeder Workload erhält einen versionierten Vertrag mit Eingaben, erwarteten Erge
 - **Graphen:** gleiche Richtung, maximale Pfadtiefe, Zyklusbehandlung und Duplikatregeln. Erreichbarkeit, kürzeste Pfade und Aufzählung aller Pfade sind unterschiedliche Workloads.
 - **Vektoren:** dieselben vorab erzeugten Embeddings, Distanzfunktion, Filter und Top-k-Werte. Ein exakter Referenzlauf liefert die Ground Truth. ANN-Varianten werden bei vergleichbarem Recall@k bewertet; als erster Zielwert gilt mindestens 0,95. Embedding-Erzeugung liegt außerhalb der Datenbankmessung. pgvector dokumentiert den Zusammenhang zwischen ANN-Parametern, Recall und Geschwindigkeit in seiner [Referenz](https://github.com/pgvector/pgvector).
 - **Volltextsuche:** Analyzer, Tokenisierung, Sprache, Filter, Ranking-Regeln und Ergebnislimits abgleichen. Relevanz und Sichtbarkeit nach Änderungen getrennt von der Abfragelatenz messen.
+- **Blob-Speicherung:** Objektbytes, Schlüssel, Metadaten, Überschreib-/Löschverhalten, Bereichsgrenzen und Sichtbarkeit nach Schreibvorgängen abgleichen. PostgreSQL `bytea` und RustFS anhand desselben Dateivertrags vergleichen; Transaktions- und Multipart-Semantik getrennt berichten.
 - **Dauerhaftigkeit:** Commit-Bestätigung, Flush-/Journal-Verhalten und Sichtbarkeit nach Schreiboperationen werden dokumentiert. Nicht gleichwertige Garantien werden getrennt berichtet.
 - **Spätere TTL-Workloads:** Logisches Ablaufen versus physischer Löschung ist eine zusätzliche Qualitätsdimension.
 
@@ -197,6 +200,7 @@ Dies ist eine Zielstruktur. Die vier Kern-Use-Cases besitzen lokale Compose-Umge
 | 2 — Graphen | Neo4j gegen PostgreSQL, mehrere Tiefen und Gradverteilungen | Alle drei Implementierungswege liefern die vereinbarten Ergebnisse; Abfragepläne und Sättigungsmessungen liegen vor. |
 | 3 — Vektoren | Qdrant gegen pgvector, exakte Referenz und ANN-Profile | Recall, Filtersemantik und Protokolle sind dokumentiert; Performance wird bei vergleichbarer Qualität ausgewertet. |
 | 4 — Volltextsuche | OpenSearch gegen PostgreSQL-Volltextsuche, abgestimmte Analyzer und Relevanzprüfungen | Suchergebnisse und Sichtbarkeit nach Änderungen erfüllen den vereinbarten Vertrag; Indexkosten und nachhaltige Performance sind dokumentiert. |
-| 5 — Erweiterungen und Transfer | Ausgewählte Redis- oder Analytik-Workloads; Empfehlungen für die Developer Platform | Jede Empfehlung benennt Einsatzgrenzen, Ressourcenbedarf, Integrationsaufwand und die zugrunde liegenden Messläufe. |
+| 5 — Blob-Speicherung | RustFS gegen PostgreSQL `bytea`, unterschiedliche Objektgrößen und Lese-/Schreibmuster | Bytes, Bereichsabfragen, Metadaten und Überschreib-/Löschverhalten erfüllen den Vertrag; Durchsatz, Latenz und Speicherbedarf sind dokumentiert. |
+| 6 — Erweiterungen und Transfer | Ausgewählte Redis- oder Analytik-Workloads; Empfehlungen für die Developer Platform | Jede Empfehlung benennt Einsatzgrenzen, Ressourcenbedarf, Integrationsaufwand und die zugrunde liegenden Messläufe. |
 
-Das Projekt ist im Kernumfang erfolgreich, wenn die Use Cases für Dokumente, Graphen, Vektoren und Volltextsuche jeweils als native Skripte, in Python und in Kotlin vorliegen, gegen PostgreSQL geprüft wurden und vollständig reproduzierbare Berichte liefern. Auch das Ergebnis „PostgreSQL genügt“ ist ein wertvolles Resultat.
+Das Projekt ist im Kernumfang erfolgreich, wenn die Use Cases für Dokumente, Graphen, Vektoren, Volltextsuche und Blob-Speicherung jeweils als native Skripte, in Python und in Kotlin vorliegen, gegen PostgreSQL geprüft wurden und vollständig reproduzierbare Berichte liefern. Auch das Ergebnis „PostgreSQL genügt“ ist ein wertvolles Resultat.

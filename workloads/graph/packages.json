@@ -1,0 +1,7 @@
+{
+  "packages": ["app", "api", "web", "auth", "core", "ui"],
+  "dependencies": [
+    ["app", "api"], ["app", "web"], ["api", "auth"],
+    ["auth", "core"], ["web", "core"], ["web", "ui"]
+  ]
+}

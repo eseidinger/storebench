@@ -1,0 +1,14 @@
+MATCH (n:Package) DETACH DELETE n;
+CREATE CONSTRAINT package_name IF NOT EXISTS FOR (n:Package) REQUIRE n.name IS UNIQUE;
+CREATE (:Package {name: 'app'});
+CREATE (:Package {name: 'api'});
+CREATE (:Package {name: 'web'});
+CREATE (:Package {name: 'auth'});
+CREATE (:Package {name: 'core'});
+CREATE (:Package {name: 'ui'});
+MATCH (a:Package {name: 'app'}), (b:Package {name: 'api'}) CREATE (a)-[:DEPENDS_ON]->(b);
+MATCH (a:Package {name: 'app'}), (b:Package {name: 'web'}) CREATE (a)-[:DEPENDS_ON]->(b);
+MATCH (a:Package {name: 'api'}), (b:Package {name: 'auth'}) CREATE (a)-[:DEPENDS_ON]->(b);
+MATCH (a:Package {name: 'auth'}), (b:Package {name: 'core'}) CREATE (a)-[:DEPENDS_ON]->(b);
+MATCH (a:Package {name: 'web'}), (b:Package {name: 'core'}) CREATE (a)-[:DEPENDS_ON]->(b);
+MATCH (a:Package {name: 'web'}), (b:Package {name: 'ui'}) CREATE (a)-[:DEPENDS_ON]->(b);

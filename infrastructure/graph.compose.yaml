@@ -1,0 +1,38 @@
+name: storebench-graph
+services:
+  age:
+    image: apache/age:release_PG17_1.7.0
+    environment:
+      POSTGRES_DB: storebench
+      POSTGRES_USER: storebench
+      POSTGRES_PASSWORD: storebench_local
+    ports:
+      - "127.0.0.1:5455:5432"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - age_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U storebench -d storebench"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  neo4j:
+    image: neo4j:5.26.32
+    environment:
+      NEO4J_AUTH: neo4j/storebench_local
+    ports:
+      - "127.0.0.1:7475:7474"
+      - "127.0.0.1:7688:7687"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p storebench_local 'RETURN 1' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+volumes:
+  age_data:
+  neo4j_data:

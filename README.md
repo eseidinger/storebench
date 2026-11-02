@@ -29,7 +29,7 @@ StoreBench is an independent experimental project for the Developer Platform's d
 
 The first runs will use local Docker Compose directly. Results may later inform platform architecture decisions, resource profiles, and examples. Benchmark runs do not depend on a platform deployment. Context: [product overview](../developer-platform/docs/product/overview.md) and [UC-05: compare technical alternatives](../developer-platform/docs/product/use-cases.md).
 
-The first executable slice is the [documents product catalog use case](docs/documents.md), with local PostgreSQL and MongoDB containers, native scripts, and functional checks.
+Executable slices now include the [documents product catalog](docs/documents.md) and [graph package dependencies](docs/graph.md) use cases. Both provide local containers, native scripts, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
 
 ## Stores and representative use cases
 
@@ -187,7 +187,7 @@ storebench/
 └── results/                # Manifests, raw data, generated reports
 ```
 
-This is a target structure. The documents use case, its local Compose environment, and native scripts are now available; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
+This is a target structure. The documents and graph use cases, local Compose environments, and native scripts are now available; the remaining structure is planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
 
 ## Implementation phases and acceptance criteria
 

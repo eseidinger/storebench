@@ -9,7 +9,7 @@ The workflow scripts in each use-case guide remain the primary way to load data 
 | Graph | Apache AGE | pgAdmin at `http://localhost:5057` (optional `ui` profile), or `psql` in the container |
 | Graph | Neo4j | Built-in Browser at `http://localhost:7475` |
 | Vectors | PostgreSQL with pgvector | pgAdmin at `http://localhost:5054` (optional `ui` profile), or `psql` in the container |
-| Vectors | Qdrant | Built-in dashboard at `http://localhost:6334/dashboard` |
+| Vectors | Qdrant | Built-in dashboard at `http://localhost:6334/dashboard`; gRPC client port `localhost:6335` |
 | Full-text search | PostgreSQL | pgAdmin at `http://localhost:5055` (optional `ui` profile), or `psql` in the container |
 | Full-text search | OpenSearch | Dashboards at `http://localhost:5602` (optional `ui` profile); REST at `http://localhost:9201` |
 | Blob storage | PostgreSQL | pgAdmin at `http://localhost:5056` (optional `ui` profile), or `psql` in the container |

@@ -194,7 +194,7 @@ storebench/
 └── results/                # Manifests, raw data, generated reports
 ```
 
-This is a target structure. All five core use cases have local Compose environments and functional scripts. The documents, graph, and full-text search use cases also have direct Python and Kotlin clients; the remaining language integrations and benchmark infrastructure are planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
+This is a target structure. All five core use cases have local Compose environments and functional scripts. The documents, graph, vector, and full-text search use cases also have direct Python and Kotlin clients; the remaining language integrations and benchmark infrastructure are planned. Eventually, local usage should support a complete sequence of startup, data generation, conformance checks, benchmarking, and reporting. Executable commands will be added alongside the implementation.
 
 ## Implementation phases and acceptance criteria
 

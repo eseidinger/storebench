@@ -1,0 +1,14 @@
+{
+  "dimension": 3,
+  "distance": "Cosine",
+  "query": [1.0, 0.0, 0.0],
+  "update": {"id": 3, "vector": [0.95, 0.05, 0.0]},
+  "documents": [
+    {"id": 1, "title": "Vector search", "category": "guide", "vector": [1.0, 0.0, 0.0]},
+    {"id": 2, "title": "Similarity search", "category": "article", "vector": [0.9, 0.1, 0.0]},
+    {"id": 3, "title": "Database indexes", "category": "article", "vector": [0.0, 1.0, 0.0]},
+    {"id": 4, "title": "Relational queries", "category": "guide", "vector": [0.0, 0.9, 0.1]},
+    {"id": 5, "title": "Object storage", "category": "article", "vector": [0.0, 0.0, 1.0]},
+    {"id": 6, "title": "Hybrid search", "category": "guide", "vector": [0.7, 0.0, 0.7]}
+  ]
+}

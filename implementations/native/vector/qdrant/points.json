@@ -1,0 +1,76 @@
+{
+  "points": [
+    {
+      "id": 1,
+      "vector": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "payload": {
+        "title": "Vector search",
+        "category": "guide"
+      }
+    },
+    {
+      "id": 2,
+      "vector": [
+        0.9,
+        0.1,
+        0.0
+      ],
+      "payload": {
+        "title": "Similarity search",
+        "category": "article"
+      }
+    },
+    {
+      "id": 3,
+      "vector": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "payload": {
+        "title": "Database indexes",
+        "category": "article"
+      }
+    },
+    {
+      "id": 4,
+      "vector": [
+        0.0,
+        0.9,
+        0.1
+      ],
+      "payload": {
+        "title": "Relational queries",
+        "category": "guide"
+      }
+    },
+    {
+      "id": 5,
+      "vector": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "payload": {
+        "title": "Object storage",
+        "category": "article"
+      }
+    },
+    {
+      "id": 6,
+      "vector": [
+        0.7,
+        0.0,
+        0.7
+      ],
+      "payload": {
+        "title": "Hybrid search",
+        "category": "guide"
+      }
+    }
+  ]
+}

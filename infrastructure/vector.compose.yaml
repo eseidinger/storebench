@@ -1,0 +1,35 @@
+name: storebench-vector
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17-trixie
+    environment:
+      POSTGRES_DB: storebench
+      POSTGRES_USER: storebench
+      POSTGRES_PASSWORD: storebench_local
+    ports:
+      - "127.0.0.1:5434:5432"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U storebench -d storebench"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    ports:
+      - "127.0.0.1:6334:6333"
+    cpus: 2
+    mem_limit: 4g
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  postgres_data:
+  qdrant_data:

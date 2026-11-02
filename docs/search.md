@@ -1,10 +1,10 @@
 # Full-text search: knowledge articles
 
-This executable StoreBench use case compares [PostgreSQL full-text search](https://www.postgresql.org/docs/current/textsearch.html) with [OpenSearch](https://docs.opensearch.org/latest/). PostgreSQL uses its built-in `tsvector` and `tsquery` features; **no extension is needed**. Both stores index the same six English-language knowledge articles and run a two-term search, category filter, and update visibility check. This small fixture establishes functional behavior, not performance or broad relevance equivalence. Python/Kotlin direct clients and the measurement runner remain future work.
+This executable StoreBench use case compares [PostgreSQL full-text search](https://www.postgresql.org/docs/current/textsearch.html) with [OpenSearch](https://docs.opensearch.org/latest/). PostgreSQL uses its built-in `tsvector` and `tsquery` features; **no extension is needed**. Both stores index the same six English-language knowledge articles and run a two-term search, category filter, and update visibility check. This small fixture establishes functional behavior, not performance or broad relevance equivalence. Direct Python and Kotlin clients also implement this contract. The measurement runner remains future work.
 
 ## Run locally
 
-Requirements: Docker with Compose, Python 3, and sufficient memory for both services. OpenSearch may also require a host `vm.max_map_count` of at least 262144; see its [Docker installation guide](https://docs.opensearch.org/latest/install-and-configure/install-opensearch/docker/). The Compose file uses PostgreSQL 17.6 and OpenSearch 3.9.0, with two CPUs and 4 GiB RAM per service. OpenSearch's JVM heap is 1 GiB. PostgreSQL is bound to localhost port 5435 and OpenSearch HTTP to localhost port 9201. OpenSearch's security plugin is disabled for this localhost-only development profile; do not expose the port externally.
+Requirements: Docker with Compose, Python 3.10 or newer, Java 17 or newer for Kotlin, and sufficient memory for both services. OpenSearch may also require a host `vm.max_map_count` of at least 262144; see its [Docker installation guide](https://docs.opensearch.org/latest/install-and-configure/install-opensearch/docker/). The Compose file uses PostgreSQL 17.6 and OpenSearch 3.9.0, with two CPUs and 4 GiB RAM per service. OpenSearch's JVM heap is 1 GiB. PostgreSQL is bound to localhost port 5435 and OpenSearch HTTP to localhost port 9201. OpenSearch's security plugin is disabled for this localhost-only development profile; do not expose the port externally.
 
 From the repository root:
 
@@ -18,6 +18,36 @@ scripts/search.sh down
 
 `seed` recreates the PostgreSQL table and OpenSearch index from [articles.json](../workloads/search/articles.json), then waits for OpenSearch's bulk write to become searchable. Rerun `seed` before repeating the before/after workload. The `seed`, `run`, and `verify` actions accept `postgres`, `opensearch`, or `both`. `down` keeps the local volumes; `docker compose -f infrastructure/search.compose.yaml down -v` removes them deliberately.
 
+### Python client
+
+Start the stores with `scripts/search.sh up`, then run from the repository root:
+
+```bash
+python3 -m venv implementations/python/search/.venv
+implementations/python/search/.venv/bin/pip install -r implementations/python/search/requirements.txt
+implementations/python/search/.venv/bin/python implementations/python/search/main.py seed both
+implementations/python/search/.venv/bin/python implementations/python/search/main.py run both
+implementations/python/search/.venv/bin/python implementations/python/search/main.py verify both
+```
+
+The Python client uses Psycopg and `opensearch-py`. It reads the canonical article fixture and OpenSearch mapping, and recreates the table or index on `seed`.
+
+### Kotlin client
+
+With the stores running, run from the repository root:
+
+```bash
+cd implementations/kotlin/search
+./gradlew installDist
+build/install/storebench-search-kotlin/bin/storebench-search-kotlin seed both
+build/install/storebench-search-kotlin/bin/storebench-search-kotlin run both
+build/install/storebench-search-kotlin/bin/storebench-search-kotlin verify both
+```
+
+The Kotlin client uses PostgreSQL JDBC and the OpenSearch Java client through Kotlin Java interoperability. It reads the same fixture and mapping. Run it from `implementations/kotlin/search` so it can find those files.
+
+Each client accepts `postgres`, `opensearch`, or `both`. Run `seed` once with either client, then `run`, then `verify`; `run` checks the before/after result IDs and changes article 5, while `verify` checks the updated state. The clients share the same stores, so a second `seed` resets both before another run. Connection overrides are `STOREBENCH_SEARCH_PG_HOST`, `STOREBENCH_SEARCH_PG_PORT`, `STOREBENCH_OPENSEARCH_HOST`, and `STOREBENCH_OPENSEARCH_PORT`; defaults match the local Compose ports. The clients use the Compose development credentials for PostgreSQL.
+
 ## Workload contract
 
 Each article has a numeric ID, title, body, and category. Both stores analyze the `title` and `body` as English text and keep `category` as an exact filter field. The query is **`vector indexing` with both terms required**. Title matches receive more weight than body matches. Result IDs are sorted by score descending, then ID ascending as a tie breaker; score values themselves are store-specific and must not be compared directly.
@@ -30,7 +60,7 @@ Each article has a numeric ID, title, body, and category. Both stores analyze th
 | 4 | Repeat the search | `6, 5` |
 | 5 | Repeat with `category = guide` | `5` |
 
-PostgreSQL builds a generated weighted `tsvector`, indexes it with GIN, and uses `plainto_tsquery('english', ...)` plus `ts_rank`. OpenSearch defines English analyzers for title/body, a keyword category field, and a two-term `multi_match` query with a category `term` filter. An OpenSearch partial update uses `refresh=wait_for`, so the subsequent query observes it; this wait is part of the operation path and must be measured separately in a future benchmark. PostgreSQL's update completes synchronously. The verifier checks document count, final ranked IDs, filtered IDs, and unchanged title in each store.
+PostgreSQL builds a generated weighted `tsvector`, indexes it with GIN, and uses `plainto_tsquery('english', ...)` plus `ts_rank`. OpenSearch defines English analyzers for title/body, a keyword category field, and a two-term `multi_match` query with a category `term` filter. An OpenSearch partial update uses `refresh=wait_for`, so the subsequent query observes it; this wait is part of the operation path and must be measured separately in a future benchmark. PostgreSQL's update completes synchronously. The native and direct-client verifiers check document count, final ranked IDs, filtered IDs, and unchanged title in each store. The direct clients also check category and updated body.
 
 The fixture has deliberately unambiguous ranked results. It does not establish identical stemming, tokenization, phrase behavior, language handling, or relevance scores beyond this contract. Before benchmarking, add varied queries, relevance judgments, update visibility targets, and realistic document volumes. Index build time, storage, refresh costs, and query plans belong in the result. See the [OpenSearch bulk API](https://docs.opensearch.org/latest/api-reference/document-apis/bulk/) for refresh behavior and the [PostgreSQL text search documentation](https://www.postgresql.org/docs/current/textsearch.html) for its built-in facilities.
 
@@ -42,6 +72,7 @@ The fixture has deliberately unambiguous ranked results. It does not establish i
 - `implementations/native/search/postgresql/`: SQL seed, operations, and verification.
 - `implementations/native/search/opensearch/`: index mapping and bulk payload.
 - `scripts/search_opensearch.py`: direct OpenSearch REST operations and verification.
-- `scripts/search.sh`: workflow wrapper.
+- `scripts/search.sh`: native workflow wrapper.
+- `implementations/python/search/` and `implementations/kotlin/search/`: direct clients with seed, run, and verify commands.
 
 Interactive access to both stores is listed in [local store access](access.md).

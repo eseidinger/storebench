@@ -29,6 +29,8 @@ StoreBench ist ein eigenständiges Experimentierprojekt für den Data-Store-Kata
 
 Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
 
+Die qualitative Gegenüberstellung der direkten Clients steht unter [Entwicklerperspektive: PostgreSQL und spezialisierte Stores](docs/developer-experience.de.md).
+
 Interaktive Datenbankwerkzeuge und integrierte Weboberflächen stehen unter [Lokaler Zugriff](docs/access.md).
 
 ## Stores und typische Use Cases

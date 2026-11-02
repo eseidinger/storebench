@@ -16,7 +16,7 @@ scripts/documents.sh verify both
 scripts/documents.sh down
 ```
 
-`seed` recreates the product table/collection and its indexes, so rerun it before repeating `run`. `down` preserves the Docker volumes. To remove local data deliberately, use `docker compose -f infrastructure/compose.yaml down -v`.
+`seed` recreates the product table/collection and its indexes, so rerun it before repeating `run`. `down` preserves the Docker volumes. To remove local data deliberately, use `docker compose -f infrastructure/documents.compose.yaml down -v`.
 
 You can select just `postgres` or `mongodb` for `seed`, `run`, and `verify`. The source dataset is [products.json](../workloads/documents/products.json); `seed` regenerates SQL and JavaScript fixtures from it with Python's standard library. Generated files are kept in the repository so the native scripts are also directly inspectable.
 
@@ -39,7 +39,7 @@ The scripts do not claim matched durability or transaction semantics. PostgreSQL
 
 ## Files
 
-- `infrastructure/compose.yaml`: local stores, resource limits, health checks, and volumes.
+- `infrastructure/documents.compose.yaml`: local stores, resource limits, health checks, and volumes.
 - `workloads/documents/products.json`: canonical fixture.
 - `scripts/generate_documents.py`: generates both native seed scripts.
 - `implementations/native/documents/{postgresql,mongodb}/`: seed, operations, and verification scripts.

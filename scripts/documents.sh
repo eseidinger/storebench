@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-compose=(docker compose -f infrastructure/compose.yaml)
+compose=(docker compose -f infrastructure/documents.compose.yaml)
 action="${1:-}"
 store="${2:-}"
 if [[ ! "$action" =~ ^(up|seed|run|verify|down)$ ]]; then

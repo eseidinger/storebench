@@ -37,7 +37,7 @@ Executable slices now include [documents](docs/documents.md), [graph package dep
 
 | Area | Specialized store | PostgreSQL comparison | Representative use case and operations |
 | --- | --- | --- | --- |
-| Documents | MongoDB | JSONB with suitable GIN/expression indexes; a relational model as a separate experiment | Product catalog with variable attributes: create products, filter nested fields, apply partial updates, and aggregate categories. |
+| Documents | CouchDB | JSONB with suitable GIN/expression indexes; a relational model as a separate experiment | Product catalog with variable attributes: create products, filter nested fields, apply partial updates, and aggregate categories. |
 | Graphs | Neo4j | Node/edge tables, indexed joins, and recursive CTEs | Software package dependency analysis: direct and transitive dependencies, change impact, and bounded path searches. |
 | Vectors | Qdrant | PostgreSQL with pgvector; exact search and a suitable ANN index | Find similar documents: top-k neighbors, metadata filters, vector updates, and result quality assessment. |
 
@@ -60,11 +60,11 @@ Extensions follow only after a complete benchmark path exists for the core scope
 | Store | Native scripts / direct interface | Python | Kotlin |
 | --- | --- | --- | --- |
 | PostgreSQL | SQL through `psql`, including pgvector queries | Psycopg | JDBC with pgJDBC |
-| MongoDB | JavaScript files for `mongosh` | PyMongo | Official Kotlin driver |
+| CouchDB | Versioned REST requests, Mango queries, and views | Direct HTTP client | Java HTTP client from Kotlin |
 | Neo4j | Cypher files through `cypher-shell` | Neo4j Python driver | Neo4j Java driver from Kotlin |
 | Qdrant | Versioned JSON requests to REST, executed by a script | Qdrant Python client | Qdrant Java client from Kotlin |
 
-Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [MongoDB Kotlin](https://www.mongodb.com/docs/languages/kotlin/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), and [Qdrant clients](https://api.qdrant.tech/).
+Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), and [Qdrant clients](https://api.qdrant.tech/).
 
 Each variant includes setup, data loading, operations, and result validation. The first language baseline uses direct drivers without an ORM or substantial application framework. Coroutine, async, pooling, and framework variants are separate experiments so their effects remain visible.
 
@@ -178,7 +178,7 @@ storebench/
 ├── infrastructure/         # Compose, resource profiles, store configurations
 ├── workloads/              # Contracts, generator profiles, expected results
 ├── implementations/
-│   ├── native/             # SQL, mongosh, Cypher, and direct API requests
+│   ├── native/             # SQL, CouchDB REST, Cypher, and direct API requests
 │   ├── python/             # Direct drivers and thin HTTP adapters
 │   └── kotlin/             # Direct drivers and thin HTTP adapters
 ├── benchmarks/             # Orchestration, direct measurement, k6 scenarios
@@ -193,7 +193,7 @@ This is a target structure. The documents, graph, and vector use cases have loca
 
 | Phase | Deliverable | Acceptance criterion |
 | --- | --- | --- |
-| 1 — Measurement foundation and documents | Docker profiles, generator, MongoDB/JSONB, three implementation paths, direct and application measurements | A clean checkout reproduces a complete run with validated results, effective limits, and a report. |
+| 1 — Measurement foundation and documents | Docker profiles, generator, CouchDB/JSONB, three implementation paths, direct and application measurements | A clean checkout reproduces a complete run with validated results, effective limits, and a report. |
 | 2 — Graphs | Neo4j versus PostgreSQL, multiple depths and degree distributions | All three implementation paths return the agreed results; query plans and saturation measurements are available. |
 | 3 — Vectors | Qdrant versus pgvector, exact reference and ANN profiles | Recall, filter semantics, and protocols are documented; performance is assessed at comparable quality. |
 | 4 — Extensions and transfer | Selected Redis, search, or analytics workloads; recommendations for the Developer Platform | Each recommendation identifies use limits, resource needs, integration effort, and the supporting runs. |

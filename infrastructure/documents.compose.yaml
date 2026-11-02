@@ -18,23 +18,23 @@ services:
       timeout: 3s
       retries: 20
 
-  mongodb:
-    image: mongo:8.0.15
+  couchdb:
+    image: couchdb:3.5.1
     environment:
-      MONGO_INITDB_ROOT_USERNAME: storebench
-      MONGO_INITDB_ROOT_PASSWORD: storebench_local
+      COUCHDB_USER: storebench
+      COUCHDB_PASSWORD: storebench_local
     ports:
-      - "127.0.0.1:27018:27017"
+      - "127.0.0.1:5985:5984"
     cpus: 2
     mem_limit: 4g
     volumes:
-      - mongo_data:/data/db
+      - couchdb_data:/opt/couchdb/data
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --username storebench --password storebench_local --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 }).ok' | grep -q 1"]
+      test: ["CMD-SHELL", "curl -fsS -u storebench:storebench_local http://127.0.0.1:5984/_up >/dev/null"]
       interval: 5s
-      timeout: 5s
-      retries: 20
+      timeout: 3s
+      retries: 30
 
 volumes:
   postgres_data:
-  mongo_data:
+  couchdb_data:

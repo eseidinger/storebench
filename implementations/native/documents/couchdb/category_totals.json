@@ -1,0 +1,9 @@
+{
+  "_id": "_design/catalog",
+  "views": {
+    "category_totals": {
+      "map": "function(doc) { if (doc.category && typeof doc.price_cents === 'number') emit(doc.category, doc.price_cents); }",
+      "reduce": "_stats"
+    }
+  }
+}

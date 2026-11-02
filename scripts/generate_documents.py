@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate identical SQL and mongosh fixtures from the versioned JSON catalog."""
+"""Generate PostgreSQL SQL and CouchDB REST fixtures from one catalog."""
 import json
 from pathlib import Path
 
@@ -24,13 +24,5 @@ sql += [
 ]
 (output / "postgresql/seed.sql").write_text("\n".join(sql) + "\n")
 
-js = [
-    "const database = db.getSiblingDB('storebench');",
-    "database.products.drop();",
-    "database.products.insertMany(" + json.dumps(products, separators=(",", ":")) + ");",
-    "database.products.createIndex({ id: 1 }, { unique: true });",
-    "database.products.createIndex({ category: 1 });",
-    "database.products.createIndex({ attributes: 1 });",
-    "print('Inserted ' + database.products.countDocuments({}) + ' products');",
-]
-(output / "mongodb/seed.js").write_text("\n".join(js) + "\n")
+couch_docs = [{"_id": product["id"], **product} for product in products]
+(output / "couchdb/seed.json").write_text(json.dumps({"docs": couch_docs}, indent=2) + "\n")

@@ -1,0 +1,5 @@
+{
+  "index": {"fields": ["attributes.color", "attributes.waterproof"]},
+  "name": "attributes_color_waterproof",
+  "type": "json"
+}

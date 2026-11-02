@@ -35,7 +35,7 @@ Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse k�
 
 | Bereich | Spezialisierter Store | PostgreSQL-Vergleich | Typischer Use Case und Operationen |
 | --- | --- | --- | --- |
-| Dokumente | MongoDB | JSONB mit passenden GIN-/Ausdrucksindizes; eine relationale Variante als separates Experiment | Produktkatalog mit variablen Attributen: Produkte anlegen, verschachtelte Felder filtern, Teiländerungen durchführen und Kategorien aggregieren. |
+| Dokumente | CouchDB | JSONB mit passenden GIN-/Ausdrucksindizes; eine relationale Variante als separates Experiment | Produktkatalog mit variablen Attributen: Produkte anlegen, verschachtelte Felder filtern, Teiländerungen durchführen und Kategorien aggregieren. |
 | Graphen | Neo4j | Knoten-/Kantentabellen, indizierte Joins und rekursive CTEs | Abhängigkeitsanalyse von Softwarepaketen: direkte und transitive Abhängigkeiten, Auswirkungen einer Änderung und begrenzte Pfadsuche. |
 | Vektoren | Qdrant | PostgreSQL mit pgvector; exakte Suche sowie geeigneter ANN-Index | Ähnliche Dokumente finden: Top-k-Nachbarn, Metadatenfilter, Vektoren aktualisieren und Trefferqualität bewerten. |
 
@@ -58,11 +58,11 @@ Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernum
 | Store | Native Skripte / direkte Schnittstelle | Python | Kotlin |
 | --- | --- | --- | --- |
 | PostgreSQL | SQL über `psql`, einschließlich pgvector-Abfragen | Psycopg | JDBC mit pgJDBC |
-| MongoDB | JavaScript-Dateien für `mongosh` | PyMongo | Offizieller Kotlin-Treiber |
+| CouchDB | Versionierte REST-Requests, Mango-Abfragen und Views | Direkter HTTP-Client | Java-HTTP-Client aus Kotlin |
 | Neo4j | Cypher-Dateien über `cypher-shell` | Neo4j-Python-Treiber | Neo4j-Java-Treiber aus Kotlin |
 | Qdrant | Versionierte JSON-Requests gegen REST, per Skript ausgeführt | Qdrant-Python-Client | Qdrant-Java-Client aus Kotlin |
 
-Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [MongoDB Kotlin](https://www.mongodb.com/docs/languages/kotlin/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/).
+Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/).
 
 Jede Variante enthält Setup, Dateneinspielung, Operationen und Ergebnisvalidierung. Die erste Sprachbaseline verwendet direkte Treiber ohne ORM oder umfangreiches Anwendungsframework. Coroutine-, Async-, Pooling- und Framework-Varianten werden als eigene Versuche ausgewiesen, damit ihre Effekte erkennbar bleiben.
 
@@ -176,7 +176,7 @@ storebench/
 ├── infrastructure/         # Compose, Ressourcenprofile, Store-Konfigurationen
 ├── workloads/              # Verträge, Generatorprofile und Erwartungswerte
 ├── implementations/
-│   ├── native/             # SQL, mongosh, Cypher und direkte API-Requests
+│   ├── native/             # SQL, CouchDB REST, Cypher und direkte API-Requests
 │   ├── python/             # Direkte Treiber und dünne HTTP-Adapter
 │   └── kotlin/             # Direkte Treiber und dünne HTTP-Adapter
 ├── benchmarks/             # Orchestrierung, Direktmessung und k6-Szenarien
@@ -191,7 +191,7 @@ Dies ist eine Zielstruktur. Aktuell existiert nur diese Projektbeschreibung. Die
 
 | Phase | Ergebnis | Abnahme |
 | --- | --- | --- |
-| 1 — Messfundament und Dokumente | Docker-Profile, Generator, MongoDB/JSONB, drei Implementierungswege, Direkt- und Anwendungsmessung | Ein sauberer Checkout reproduziert einen vollständigen Lauf mit validierten Ergebnissen, wirksamen Limits und Bericht. |
+| 1 — Messfundament und Dokumente | Docker-Profile, Generator, CouchDB/JSONB, drei Implementierungswege, Direkt- und Anwendungsmessung | Ein sauberer Checkout reproduziert einen vollständigen Lauf mit validierten Ergebnissen, wirksamen Limits und Bericht. |
 | 2 — Graphen | Neo4j gegen PostgreSQL, mehrere Tiefen und Gradverteilungen | Alle drei Implementierungswege liefern die vereinbarten Ergebnisse; Abfragepläne und Sättigungsmessungen liegen vor. |
 | 3 — Vektoren | Qdrant gegen pgvector, exakte Referenz und ANN-Profile | Recall, Filtersemantik und Protokolle sind dokumentiert; Performance wird bei vergleichbarer Qualität ausgewertet. |
 | 4 — Erweiterungen und Transfer | Ausgewählte Redis-, Such- oder Analytik-Workloads; Empfehlungen für die Developer Platform | Jede Empfehlung benennt Einsatzgrenzen, Ressourcenbedarf, Integrationsaufwand und die zugrunde liegenden Messläufe. |

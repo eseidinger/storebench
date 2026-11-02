@@ -192,7 +192,7 @@ storebench/
 └── results/                # Manifeste, Rohdaten und generierte Berichte
 ```
 
-Dies ist eine Zielstruktur. Die fünf Kern-Use-Cases besitzen lokale Compose-Umgebungen und Funktionsskripte. Für den Dokument-Use-Case gibt es außerdem direkte Python- und Kotlin-Clients; die übrigen Sprachintegrationen und die Benchmark-Infrastruktur sind geplant. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
+Dies ist eine Zielstruktur. Die fünf Kern-Use-Cases besitzen lokale Compose-Umgebungen und Funktionsskripte. Für die Dokument- und Graph-Use-Cases gibt es außerdem direkte Python- und Kotlin-Clients; die übrigen Sprachintegrationen und die Benchmark-Infrastruktur sind geplant. Die spätere lokale Bedienung soll einen vollständigen Ablauf aus Start, Datenerzeugung, Konformitätsprüfung, Benchmark und Bericht ermöglichen. Ausführbare Befehle werden mit der Implementierung ergänzt.
 
 ## Umsetzung und Abnahmekriterien
 

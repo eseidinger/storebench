@@ -4,7 +4,7 @@ This executable StoreBench use case compares PostgreSQL `bytea` with [RustFS](ht
 
 ## Run locally
 
-Requirements: Docker with Compose, Python 3, and AWS CLI v2 available as `aws`. The workflow uses `psql` inside the PostgreSQL container and AWS CLI as a direct S3 protocol client. Compose runs PostgreSQL 17.6 and RustFS 1.0.3, each with a two-CPU, 4-GiB limit. PostgreSQL listens on localhost port 5436; RustFS S3 listens on localhost port 9002. Fixed credentials are used only for local development. RustFS runs as a single-node, single-disk instance without redundancy; the [RustFS container guide](https://docs.rustfs.com/en/installation/container/docker/) describes this mode.
+Requirements: Docker with Compose, Python 3.10 or newer, Java 17 or newer for Kotlin, and AWS CLI v2 as `aws` for the native workflow. The native workflow uses `psql` inside the PostgreSQL container and AWS CLI as a direct S3 protocol client. Compose runs PostgreSQL 17.6 and RustFS 1.0.3, each with a two-CPU, 4-GiB limit. PostgreSQL listens on localhost port 5436; RustFS S3 listens on localhost port 9002. Fixed credentials are used only for local development. RustFS runs as a single-node, single-disk instance without redundancy; the [RustFS container guide](https://docs.rustfs.com/en/installation/container/docker/) describes this mode.
 
 From the repository root:
 
@@ -17,6 +17,36 @@ scripts/blob.sh down
 ```
 
 `seed` resets the PostgreSQL table and the RustFS bucket's objects, then loads the same deterministic bytes. Rerun it before repeating `run`, which overwrites and deletes objects. `seed`, `run`, and `verify` accept `postgres`, `rustfs`, or `both`. `down` keeps the Docker volumes; `docker compose -f infrastructure/blob.compose.yaml down -v` removes them deliberately.
+
+### Python client
+
+Start the stores with `scripts/blob.sh up`, then run from the repository root:
+
+```bash
+python3 -m venv implementations/python/blob/.venv
+implementations/python/blob/.venv/bin/pip install -r implementations/python/blob/requirements.txt
+implementations/python/blob/.venv/bin/python implementations/python/blob/main.py seed both
+implementations/python/blob/.venv/bin/python implementations/python/blob/main.py run both
+implementations/python/blob/.venv/bin/python implementations/python/blob/main.py verify both
+```
+
+The Python client uses Psycopg and Boto3, with RustFS as its S3 endpoint. It reuses the deterministic byte generator from `scripts/blob_data.py`. Connection overrides are `STOREBENCH_BLOB_PG_HOST`, `STOREBENCH_BLOB_PG_PORT`, and `STOREBENCH_RUSTFS_ENDPOINT`.
+
+### Kotlin client
+
+With the stores running, execute from the repository root:
+
+```bash
+cd implementations/kotlin/blob
+./gradlew installDist
+build/install/storebench-blob-kotlin/bin/storebench-blob-kotlin seed both
+build/install/storebench-blob-kotlin/bin/storebench-blob-kotlin run both
+build/install/storebench-blob-kotlin/bin/storebench-blob-kotlin verify both
+```
+
+The Kotlin client uses PostgreSQL JDBC and the AWS SDK for Java through Kotlin Java interoperability. It reads the canonical manifest and reproduces its SHA-256 byte recipe. Run it from `implementations/kotlin/blob` so it can find the manifest. It accepts the same connection overrides as Python. Both S3 clients use the fixed local credentials and path-style addressing.
+
+Both direct clients accept `postgres`, `rustfs`, or `both`. `seed` clears and reloads the selected store. `run` checks the original full objects, metadata, and byte range before overwriting and deleting; `verify` checks the final bytes, metadata, range, keys, and deletion. The clients share the same stores, so run a fresh `seed` before a second `run`.
 
 ## Workload contract
 
@@ -41,6 +71,7 @@ The systems have different transaction, concurrency, and storage semantics. Post
 - `scripts/blob_data.py`: deterministic payload and PostgreSQL SQL generator.
 - `implementations/native/blob/postgresql/`: generated SQL seed, operations, and verification.
 - `scripts/blob_rustfs.py`: AWS CLI S3 operations and byte-level verification.
-- `scripts/blob.sh`: workflow wrapper.
+- `scripts/blob.sh`: native workflow wrapper.
+- `implementations/python/blob/` and `implementations/kotlin/blob/`: direct clients with seed, run, and verify commands.
 
 Interactive access to both stores is listed in [local store access](access.md).

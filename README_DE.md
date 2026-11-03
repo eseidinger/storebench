@@ -189,7 +189,7 @@ storebench/
 │   ├── python/             # Direkte Treiber und dünne HTTP-Adapter
 │   └── kotlin/             # Direkte Treiber und dünne HTTP-Adapter
 ├── benchmarks/             # Orchestrierung, Direktmessung und k6-Szenarien
-├── observability/          # Ressourcenerfassung, Prometheus/Grafana nach Bedarf
+├── observability/          # Lokaler Docker-Stats-Sampler und Auswertung
 ├── tests/                  # Konformität und Prüfung der Messinstrumentierung
 └── results/                # Manifeste, Rohdaten und generierte Berichte
 ```

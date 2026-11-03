@@ -1,7 +1,15 @@
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.JsonNode
+import java.io.ByteArrayInputStream
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.DriverManager
+import java.time.Duration
+import java.util.zip.GZIPInputStream
 import org.neo4j.driver.AuthTokens
 import org.neo4j.driver.GraphDatabase
 
@@ -9,6 +17,9 @@ private val root = Path.of("").toAbsolutePath().normalize().resolve("../../..").
 private val fixture = ObjectMapper().readTree(Files.readString(root.resolve("workloads/graph/packages.json")))
 private val packages = fixture["packages"].map { it.asText() }
 private val dependencies = fixture["dependencies"].map { it[0].asText() to it[1].asText() }
+private val hugeGraphFiles = root.resolve("implementations/native/graph/hugegraph")
+private val hugeGraphSchema = ObjectMapper().readTree(Files.readString(hugeGraphFiles.resolve("schema.json")))
+private val hugeGraphOperations = ObjectMapper().readTree(Files.readString(hugeGraphFiles.resolve("operations.json")))
 
 private data class Case(val name: String, val cypher: String, val expected: List<String>)
 private val cases = listOf(
@@ -27,7 +38,7 @@ private fun check(value: Boolean, message: String) {
 private interface Store : AutoCloseable {
     val name: String
     fun seed()
-    fun query(cypher: String): List<String>
+    fun query(name: String, cypher: String): List<String>
 }
 
 private class Age : Store {
@@ -71,7 +82,7 @@ private class Age : Store {
         println("Kotlin/AGE: inserted ${packages.size} packages and ${dependencies.size} dependencies")
     }
 
-    override fun query(cypher: String) = sql(cypher, true)
+    override fun query(name: String, cypher: String) = sql(cypher, true)
 }
 
 private class Neo4j : Store {
@@ -97,20 +108,90 @@ private class Neo4j : Store {
         println("Kotlin/Neo4j: inserted ${packages.size} packages and ${dependencies.size} dependencies")
     }
 
-    override fun query(cypher: String): List<String> = driver.session().use { session ->
+    override fun query(name: String, cypher: String): List<String> = driver.session().use { session ->
         session.run(cypher).list { it[0].asObject().toString() }.sorted()
     }
 }
 
+private class HugeGraph : Store {
+    override val name = "HugeGraph"
+    private val base = (System.getenv("STOREBENCH_HUGEGRAPH_URL") ?: "http://127.0.0.1:8083").trimEnd('/')
+    private val graphPath = "/graphspaces/DEFAULT/graphs/hugegraph"
+    private val http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()
+    private val mapper = ObjectMapper()
+
+    init { request("GET", "/versions") }
+
+    override fun close() {}
+
+    private fun request(method: String, path: String, body: Any? = null, missingOk: Boolean = false): JsonNode? {
+        val content = if (body == null) null else mapper.writeValueAsString(body)
+        val builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(30))
+            .header("Content-Type", "application/json")
+        val request = builder.method(method, if (content == null) HttpRequest.BodyPublishers.noBody()
+                                     else HttpRequest.BodyPublishers.ofString(content)).build()
+        val response = http.send(request, HttpResponse.BodyHandlers.ofByteArray())
+        if (missingOk && response.statusCode() == 404) return null
+        check(response.statusCode() in 200..299, "HugeGraph $method $path: HTTP ${response.statusCode()}: ${String(response.body())}")
+        val bytes = response.body()
+        val decoded = if (bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte())
+            GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() } else bytes
+        return mapper.readTree(decoded)
+    }
+
+    private fun gremlin(statement: String): JsonNode {
+        val response = request("POST", "/gremlin", mapOf(
+            "gremlin" to statement, "aliases" to mapOf("g" to "__g_DEFAULT-hugegraph")))!!
+        check(response["status"]["code"].asInt() == 200, "HugeGraph Gremlin failed: ${response["status"]}")
+        return response["result"]["data"]
+    }
+
+    override fun seed() {
+        check(packages.distinct().size == packages.size, "Duplicate package name")
+        check(dependencies.distinct().size == dependencies.size, "Duplicate dependency")
+        check(dependencies.all { it.first in packages && it.second in packages && it.first != it.second },
+            "Invalid dependency endpoint")
+        for (group in listOf("propertykeys", "vertexlabels", "edgelabels")) {
+            for (definition in hugeGraphSchema[group]) {
+                val path = "$graphPath/schema/$group/${definition["name"].asText()}"
+                if (request("GET", path, missingOk = true) == null)
+                    request("POST", "$graphPath/schema/$group", definition)
+            }
+        }
+        gremlin("g.V().hasLabel('Package').drop().iterate()")
+        val ids = mutableMapOf<String, String>()
+        for (name in packages) {
+            val vertex = request("POST", "$graphPath/graph/vertices",
+                mapOf("label" to "Package", "properties" to mapOf("name" to name)))!!
+            ids[name] = vertex["id"].asText()
+        }
+        for ((source, target) in dependencies) {
+            request("POST", "$graphPath/graph/edges", mapOf(
+                "label" to "DEPENDS_ON", "outV" to ids.getValue(source), "inV" to ids.getValue(target),
+                "outVLabel" to "Package", "inVLabel" to "Package", "properties" to emptyMap<String, String>()))
+        }
+        println("Kotlin/HugeGraph: inserted ${packages.size} packages and ${dependencies.size} dependencies")
+    }
+
+    override fun query(name: String, cypher: String): List<String> = gremlin(hugeGraphOperations[name].asText()).map {
+        if (name == "paths") (if (it.isObject) it["objects"].size() else it.size()).minus(1).toString()
+        else it.asText()
+    }.sorted()
+}
+
 fun main(args: Array<String>) {
-    check(args.size == 2 && args[0] in listOf("seed", "run", "verify") && args[1] in listOf("age", "neo4j", "both"),
-        "Usage: graph {seed|run|verify} {age|neo4j|both}")
-    for (target in (if (args[1] == "both") listOf("age", "neo4j") else listOf(args[1]))) {
-        val store: Store = if (target == "age") Age() else Neo4j()
+    check(args.size == 2 && args[0] in listOf("seed", "run", "verify") && args[1] in listOf("age", "neo4j", "hugegraph", "both"),
+        "Usage: graph {seed|run|verify} {age|neo4j|hugegraph|both}")
+    for (target in (if (args[1] == "both") listOf("age", "neo4j", "hugegraph") else listOf(args[1]))) {
+        val store: Store = when (target) {
+            "age" -> Age()
+            "neo4j" -> Neo4j()
+            else -> HugeGraph()
+        }
         store.use { client ->
             if (args[0] == "seed") client.seed()
             else for (case in cases) {
-                val actual = client.query(case.cypher)
+                val actual = client.query(case.name, case.cypher)
                 if (args[0] == "verify") {
                     check(actual == case.expected, "${client.name} ${case.name}: expected ${case.expected}, got $actual")
                     println("Kotlin/${client.name} ${case.name}: OK")

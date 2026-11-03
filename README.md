@@ -29,7 +29,7 @@ StoreBench is an independent experimental project for the Developer Platform's d
 
 The first runs will use local Docker Compose directly. Results may later inform platform architecture decisions, resource profiles, and examples. Benchmark runs do not depend on a platform deployment. Context: [product overview](../developer-platform/docs/product/overview.md) and [UC-05: compare technical alternatives](../developer-platform/docs/product/use-cases.md).
 
-Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The native graph slice covers Apache AGE, Neo4j, and HugeGraph; Python and Kotlin clients for HugeGraph and the relational PostgreSQL graph baseline remain planned.
+Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice covers Apache AGE, Neo4j, and HugeGraph with native scripts and direct Python/Kotlin clients; the relational PostgreSQL graph baseline remains planned.
 
 A qualitative comparison of the direct clients is available in [Developer experience: PostgreSQL and specialized stores](docs/developer-experience.md).
 
@@ -67,7 +67,7 @@ Extensions follow only after a complete benchmark path exists for the core scope
 | PostgreSQL | SQL through `psql`, including pgvector queries | Psycopg | JDBC with pgJDBC |
 | CouchDB | Versioned REST requests, Mango queries, and views | Direct HTTP client | Java HTTP client from Kotlin |
 | Neo4j | Cypher files through `cypher-shell` | Neo4j Python driver | Neo4j Java driver from Kotlin |
-| Apache HugeGraph | Gremlin through the REST API | HugeGraph Python client (planned) | HugeGraph Java client from Kotlin (planned) |
+| Apache HugeGraph | Gremlin through the REST API | Direct HTTP client using REST and Gremlin | Java HTTP client using REST and Gremlin from Kotlin |
 | Qdrant | Versioned JSON requests to REST, executed by a script | Qdrant Python client | Qdrant Java client from Kotlin |
 | OpenSearch | Versioned JSON requests to the search REST API | OpenSearch Python client | OpenSearch Java client from Kotlin |
 | RustFS | S3-compatible requests through a CLI or signed HTTP script | AWS SDK for Python (Boto3) with a RustFS endpoint | AWS SDK for Java from Kotlin with a RustFS endpoint |

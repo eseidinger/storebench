@@ -37,7 +37,7 @@ Ein neuer Prozess pro Operation, ein überlasteter Lastgenerator oder bloße Dur
 
 ## 2. Graph: PostgreSQL/AGE, Neo4j und HugeGraph
 
-**Datenprofile:** Aus dem [kleinen DAG](../workloads/graph/packages.json) deterministische gerichtete Graphen erzeugen, z. B. 10.000, 100.000 und 1.000.000 Knoten mit dokumentierter Kantenanzahl. Gradverteilung, Anteil stark vernetzter Knoten, Tiefe und Anzahl alternativer Pfade variieren. Zyklische Graphen erhalten einen eigenen Vertrag mit begrenzter Traversierung und definierter Deduplizierung. Für HugeGraph sind lokaler Container und native REST-/Gremlin-Skripte vorhanden; direkte Python-/Kotlin-Clients und Benchmarks fehlen noch. Eine relationale PostgreSQL-Baseline mit Knoten-/Kantentabellen und rekursiven CTEs ist eine **spätere zusätzliche Variante**; der vorhandene PostgreSQL-Pfad verwendet AGE.
+**Datenprofile:** Aus dem [kleinen DAG](../workloads/graph/packages.json) deterministische gerichtete Graphen erzeugen, z. B. 10.000, 100.000 und 1.000.000 Knoten mit dokumentierter Kantenanzahl. Gradverteilung, Anteil stark vernetzter Knoten, Tiefe und Anzahl alternativer Pfade variieren. Zyklische Graphen erhalten einen eigenen Vertrag mit begrenzter Traversierung und definierter Deduplizierung. Für HugeGraph sind lokaler Container, native REST-/Gremlin-Skripte und direkte Python-/Kotlin-Clients vorhanden; Benchmarks fehlen noch. Eine relationale PostgreSQL-Baseline mit Knoten-/Kantentabellen und rekursiven CTEs ist eine **spätere zusätzliche Variante**; der vorhandene PostgreSQL-Pfad verwendet AGE.
 
 | Test | Operation und Variation | Qualitätsprüfung und gesonderte Größen |
 | --- | --- | --- |

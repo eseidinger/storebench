@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-"""Direct Apache AGE and Neo4j clients for the package dependency graph."""
+"""Direct Apache AGE, Neo4j, and HugeGraph clients for the package graph."""
+import gzip
 import json
 import os
 import re
 import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import psycopg
 from neo4j import GraphDatabase
 
 ROOT = Path(__file__).resolve().parents[3]
 GRAPH = json.loads((ROOT / 'workloads/graph/packages.json').read_text())
+HUGEGRAPH_FILES = ROOT / 'implementations/native/graph/hugegraph'
+HUGEGRAPH_SCHEMA = json.loads((HUGEGRAPH_FILES / 'schema.json').read_text())
+HUGEGRAPH_OPERATIONS = json.loads((HUGEGRAPH_FILES / 'operations.json').read_text())
 CASES = [
     ('nodes', 'MATCH (p:Package) RETURN count(p)', ['6']),
     ('edges', 'MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)', ['6']),
@@ -100,18 +106,86 @@ class Neo4j:
             return sorted(str(record[0]) for record in session.run(cypher))
 
 
+class HugeGraph:
+    name = 'HugeGraph'
+    graph_path = '/graphspaces/DEFAULT/graphs/hugegraph'
+
+    def __init__(self):
+        self.url = os.getenv('STOREBENCH_HUGEGRAPH_URL', 'http://127.0.0.1:8083').rstrip('/')
+        self.request('GET', '/versions')
+
+    def close(self):
+        pass
+
+    def request(self, method, path, body=None, missing_ok=False):
+        payload = None if body is None else json.dumps(body).encode()
+        req = Request(self.url + path, data=payload, method=method,
+                      headers={'Content-Type': 'application/json'})
+        try:
+            with urlopen(req, timeout=30) as response:
+                content = response.read()
+                if response.headers.get('Content-Encoding') == 'gzip' or content.startswith(b'\x1f\x8b'):
+                    content = gzip.decompress(content)
+                return json.loads(content)
+        except HTTPError as exc:
+            if missing_ok and exc.code == 404:
+                return None
+            raise RuntimeError(f'HugeGraph {method} {path}: HTTP {exc.code}: {exc.read().decode()}') from exc
+        except URLError as exc:
+            raise RuntimeError(f'HugeGraph {method} {path}: {exc.reason}') from exc
+
+    def gremlin(self, statement):
+        response = self.request('POST', '/gremlin', {
+            'gremlin': statement, 'aliases': {'g': '__g_DEFAULT-hugegraph'},
+        })
+        require(response.get('status', {}).get('code') == 200,
+                f'HugeGraph Gremlin failed: {response.get("status")}')
+        return response['result']['data']
+
+    def seed(self):
+        names = GRAPH['packages']
+        edges = GRAPH['dependencies']
+        require(len(names) == len(set(names)), 'Duplicate package name')
+        require(len(edges) == len({tuple(edge) for edge in edges}), 'Duplicate dependency')
+        require(all(a in names and b in names and a != b for a, b in edges), 'Invalid dependency endpoint')
+        for group in ('propertykeys', 'vertexlabels', 'edgelabels'):
+            for definition in HUGEGRAPH_SCHEMA[group]:
+                path = f'{self.graph_path}/schema/{group}/{definition["name"]}'
+                if self.request('GET', path, missing_ok=True) is None:
+                    self.request('POST', f'{self.graph_path}/schema/{group}', definition)
+        self.gremlin("g.V().hasLabel('Package').drop().iterate()")
+        ids = {}
+        for name in names:
+            vertex = self.request('POST', f'{self.graph_path}/graph/vertices', {
+                'label': 'Package', 'properties': {'name': name},
+            })
+            ids[name] = vertex['id']
+        for source, target in edges:
+            self.request('POST', f'{self.graph_path}/graph/edges', {
+                'label': 'DEPENDS_ON', 'outV': ids[source], 'inV': ids[target],
+                'outVLabel': 'Package', 'inVLabel': 'Package', 'properties': {},
+            })
+        print(f'Python/HugeGraph: inserted {len(names)} packages and {len(edges)} dependencies')
+
+    def query(self, label, _cypher):
+        values = self.gremlin(HUGEGRAPH_OPERATIONS[label])
+        if label == 'paths':
+            values = [len(path['objects'] if isinstance(path, dict) else path) - 1 for path in values]
+        return sorted(str(value) for value in values)
+
+
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ('seed', 'run', 'verify') or sys.argv[2] not in ('age', 'neo4j', 'both'):
-        raise SystemExit('Usage: main.py {seed|run|verify} {age|neo4j|both}')
+    if len(sys.argv) != 3 or sys.argv[1] not in ('seed', 'run', 'verify') or sys.argv[2] not in ('age', 'neo4j', 'hugegraph', 'both'):
+        raise SystemExit('Usage: main.py {seed|run|verify} {age|neo4j|hugegraph|both}')
     action, target = sys.argv[1:]
-    for store in (['age', 'neo4j'] if target == 'both' else [target]):
-        client = Age() if store == 'age' else Neo4j()
+    for store in (['age', 'neo4j', 'hugegraph'] if target == 'both' else [target]):
+        client = Age() if store == 'age' else Neo4j() if store == 'neo4j' else HugeGraph()
         try:
             if action == 'seed':
                 client.seed()
             else:
                 for label, cypher, expected in CASES:
-                    actual = client.query(cypher)
+                    actual = client.query(label, cypher) if store == 'hugegraph' else client.query(cypher)
                     if action == 'verify':
                         require(actual == expected, f'{client.name} {label}: expected {expected}, got {actual}')
                         print(f'Python/{client.name} {label}: OK')

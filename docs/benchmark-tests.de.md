@@ -5,7 +5,7 @@ Dieser Plan konkretisiert die [Messmethodik im README](../README_DE.md) für die
 | Use Case | Vergleich | Vorhandener Vertrag |
 | --- | --- | --- |
 | Dokumente | PostgreSQL JSONB / CouchDB | [Produkte und Operationen](documents.md) |
-| Graph | PostgreSQL mit Apache AGE / Neo4j / Apache HugeGraph (geplant) | [Paketabhängigkeiten](graph.md) |
+| Graph | PostgreSQL mit Apache AGE / Neo4j / Apache HugeGraph | [Paketabhängigkeiten](graph.md) |
 | Vektoren | PostgreSQL mit pgvector / Qdrant | [Ähnliche Dokumente](vector.md) |
 | Volltextsuche | PostgreSQL-Volltextsuche / OpenSearch | [Artikel und Suche](search.md) |
 | Blobs | PostgreSQL `bytea` / RustFS über S3 | [Objekte und Dateivertrag](blob.md) |
@@ -37,7 +37,7 @@ Ein neuer Prozess pro Operation, ein überlasteter Lastgenerator oder bloße Dur
 
 ## 2. Graph: PostgreSQL/AGE, Neo4j und HugeGraph
 
-**Datenprofile:** Aus dem [kleinen DAG](../workloads/graph/packages.json) deterministische gerichtete Graphen erzeugen, z. B. 10.000, 100.000 und 1.000.000 Knoten mit dokumentierter Kantenanzahl. Gradverteilung, Anteil stark vernetzter Knoten, Tiefe und Anzahl alternativer Pfade variieren. Zyklische Graphen erhalten einen eigenen Vertrag mit begrenzter Traversierung und definierter Deduplizierung. HugeGraph ist als weitere Kernvariante geplant; lokal implementiert sind derzeit nur AGE und Neo4j. Eine relationale PostgreSQL-Baseline mit Knoten-/Kantentabellen und rekursiven CTEs ist eine **spätere zusätzliche Variante**; der vorhandene PostgreSQL-Pfad verwendet AGE.
+**Datenprofile:** Aus dem [kleinen DAG](../workloads/graph/packages.json) deterministische gerichtete Graphen erzeugen, z. B. 10.000, 100.000 und 1.000.000 Knoten mit dokumentierter Kantenanzahl. Gradverteilung, Anteil stark vernetzter Knoten, Tiefe und Anzahl alternativer Pfade variieren. Zyklische Graphen erhalten einen eigenen Vertrag mit begrenzter Traversierung und definierter Deduplizierung. Für HugeGraph sind lokaler Container und native REST-/Gremlin-Skripte vorhanden; direkte Python-/Kotlin-Clients und Benchmarks fehlen noch. Eine relationale PostgreSQL-Baseline mit Knoten-/Kantentabellen und rekursiven CTEs ist eine **spätere zusätzliche Variante**; der vorhandene PostgreSQL-Pfad verwendet AGE.
 
 | Test | Operation und Variation | Qualitätsprüfung und gesonderte Größen |
 | --- | --- | --- |

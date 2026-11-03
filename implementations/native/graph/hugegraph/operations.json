@@ -1,0 +1,8 @@
+{
+  "nodes": "g.V().hasLabel('Package').count()",
+  "edges": "g.E().hasLabel('DEPENDS_ON').count()",
+  "direct": "g.V().has('Package','name','app').out('DEPENDS_ON').values('name').toList()",
+  "transitive": "g.V().has('Package','name','app').repeat(__.out('DEPENDS_ON')).emit().times(4).dedup().values('name').toList()",
+  "impact": "g.V().has('Package','name','core').repeat(__.in('DEPENDS_ON')).emit().times(4).dedup().values('name').toList()",
+  "paths": "g.V().has('Package','name','app').repeat(__.out('DEPENDS_ON').simplePath()).emit().times(4).has('name','core').path().by('name').toList()"
+}

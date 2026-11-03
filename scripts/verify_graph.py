@@ -3,9 +3,9 @@
 import subprocess
 import sys
 
-stores = ['age', 'neo4j'] if len(sys.argv) < 2 or sys.argv[1] == 'both' else [sys.argv[1]]
-if any(store not in ('age', 'neo4j') for store in stores):
-    sys.exit('Store must be age, neo4j, or both')
+stores = ['age', 'neo4j', 'hugegraph'] if len(sys.argv) < 2 or sys.argv[1] == 'both' else [sys.argv[1]]
+if any(store not in ('age', 'neo4j', 'hugegraph') for store in stores):
+    sys.exit('Store must be age, neo4j, hugegraph, or both')
 
 cases = [
     ('nodes', 'MATCH (p:Package) RETURN count(p)', {'6'}),
@@ -17,6 +17,9 @@ cases = [
 ]
 
 for store in stores:
+    if store == 'hugegraph':
+        subprocess.run([sys.executable, 'implementations/native/graph/hugegraph/main.py', 'verify'], check=True)
+        continue
     for label, cypher, expected in cases:
         if store == 'age':
             sql = "LOAD 'age'; SET search_path = ag_catalog, \"$user\", public; SELECT value::text FROM cypher('dependencies', $$ " + cypher + " $$) AS (value agtype);"

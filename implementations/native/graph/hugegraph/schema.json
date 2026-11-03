@@ -1,0 +1,11 @@
+{
+  "propertykeys": [
+    {"name": "name", "data_type": "TEXT", "cardinality": "SINGLE"}
+  ],
+  "vertexlabels": [
+    {"name": "Package", "id_strategy": "PRIMARY_KEY", "properties": ["name"], "primary_keys": ["name"], "nullable_keys": [], "enable_label_index": true}
+  ],
+  "edgelabels": [
+    {"name": "DEPENDS_ON", "source_label": "Package", "target_label": "Package", "frequency": "SINGLE", "properties": [], "sort_keys": [], "nullable_keys": [], "enable_label_index": true}
+  ]
+}

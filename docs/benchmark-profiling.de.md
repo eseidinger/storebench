@@ -93,7 +93,7 @@ Ein Diagnose-Snapshot liest lokal verfügbare Store-Statistiken und Konfiguratio
 
 ### Graph: G1–G6
 
-- **G1/G2:** Container-CPU, Speicher und Ergebnisbytes gegen Startknotengrad, Tiefe und tatsächliche Ergebniskardinalität plotten. Bei Neo4j [`EXPLAIN`/`PROFILE`](https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/execution-plans/) auf repräsentativen Queries für Operatoren und Zeilen verwenden. AGE: SQL-Plan, Buffer-Verbrauch und Client-Zeit für `agtype`-Dekodierung; fehlende Cypher-Details ausdrücklich als Diagnosegrenze nennen. Für die geplante HugeGraph-Variante Gremlin- und Client-Zeit sowie lokal verfügbare Serverstatistiken getrennt erfassen.
+- **G1/G2:** Container-CPU, Speicher und Ergebnisbytes gegen Startknotengrad, Tiefe und tatsächliche Ergebniskardinalität plotten. Bei Neo4j [`EXPLAIN`/`PROFILE`](https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/execution-plans/) auf repräsentativen Queries für Operatoren und Zeilen verwenden. AGE: SQL-Plan, Buffer-Verbrauch und Client-Zeit für `agtype`-Dekodierung; fehlende Cypher-Details ausdrücklich als Diagnosegrenze nennen. Bei HugeGraph Gremlin- und Client-Zeit sowie lokal verfügbare Serverstatistiken getrennt erfassen.
 - **G3/G4:** Ergebniszahl, zurückgelegte Pfade und Abbruch-/Limitgrund protokollieren. Speicherpeak und CPU-Zeit besonders bei hoher Verzweigung beobachten. Ein abgeschnittenes Resultat ist nur mit identischer, deterministischer Begrenzung vergleichbar.
 - **G5/G6:** Transaktionsdauer, Sperr-/Wartezeit, Constraint-/Indexaufwand und Importphasen getrennt erfassen. Kein `PROFILE` einer Mutation im unveränderten Messdatensatz ausführen.
 

@@ -27,7 +27,7 @@ Zunächst werden Einzelinstanzen untersucht. Hochverfügbarkeit, verteilte Clust
 
 StoreBench ist ein eigenständiges Experimentierprojekt für den Data-Store-Katalog der Developer Platform. Die vorhandenen Plattformunterlagen nennen Dokument-, Graph- und Vektorlabs als mögliche Erweiterungen; sie belegen noch keinen bereitgestellten Katalog spezialisierter Stores. Die nachfolgende Auswahl ist deshalb ein Vorschlag und keine Aussage über bereits verfügbare Plattformservices.
 
-Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Der Graph-Pfad umfasst derzeit Apache AGE und Neo4j; HugeGraph ist als weitere Kernoption geplant. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
+Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Der native Graph-Pfad umfasst Apache AGE, Neo4j und HugeGraph; Python- und Kotlin-Clients für HugeGraph sind noch geplant. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
 
 Die qualitative Gegenüberstellung der direkten Clients steht unter [Entwicklerperspektive: PostgreSQL und spezialisierte Stores](docs/developer-experience.de.md).
 
@@ -65,7 +65,7 @@ Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernum
 | PostgreSQL | SQL über `psql`, einschließlich pgvector-Abfragen | Psycopg | JDBC mit pgJDBC |
 | CouchDB | Versionierte REST-Requests, Mango-Abfragen und Views | Direkter HTTP-Client | Java-HTTP-Client aus Kotlin |
 | Neo4j | Cypher-Dateien über `cypher-shell` | Neo4j-Python-Treiber | Neo4j-Java-Treiber aus Kotlin |
-| Apache HugeGraph (geplant) | Gremlin über die REST-API | HugeGraph-Python-Client | HugeGraph-Java-Client aus Kotlin |
+| Apache HugeGraph | Gremlin über die REST-API | HugeGraph-Python-Client (geplant) | HugeGraph-Java-Client aus Kotlin (geplant) |
 | Qdrant | Versionierte JSON-Requests gegen REST, per Skript ausgeführt | Qdrant-Python-Client | Qdrant-Java-Client aus Kotlin |
 | OpenSearch | Versionierte JSON-Requests gegen die Such-REST-API | OpenSearch-Python-Client | OpenSearch-Java-Client aus Kotlin |
 | RustFS | S3-kompatible Requests per CLI oder signiertem HTTP-Skript | AWS SDK für Python (Boto3) mit RustFS-Endpunkt | AWS SDK für Java aus Kotlin mit RustFS-Endpunkt |

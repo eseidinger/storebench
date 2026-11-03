@@ -8,6 +8,7 @@ The workflow scripts in each use-case guide remain the primary way to load data 
 | Documents | CouchDB | Built-in Fauxton at `http://localhost:5985/_utils/` |
 | Graph | Apache AGE | pgAdmin at `http://localhost:5057` (optional `ui` profile), or `psql` in the container |
 | Graph | Neo4j | Built-in Browser at `http://localhost:7475` |
+| Graph | Apache HugeGraph | REST API at `http://localhost:8083`; inspect health with `/versions` |
 | Vectors | PostgreSQL with pgvector | pgAdmin at `http://localhost:5054` (optional `ui` profile), or `psql` in the container |
 | Vectors | Qdrant | Built-in dashboard at `http://localhost:6334/dashboard`; gRPC client port `localhost:6335` |
 | Full-text search | PostgreSQL | pgAdmin at `http://localhost:5055` (optional `ui` profile), or `psql` in the container |

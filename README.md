@@ -29,7 +29,7 @@ StoreBench is an independent experimental project for the Developer Platform's d
 
 The first runs will use local Docker Compose directly. Results may later inform platform architecture decisions, resource profiles, and examples. Benchmark runs do not depend on a platform deployment. Context: [product overview](../developer-platform/docs/product/overview.md) and [UC-05: compare technical alternatives](../developer-platform/docs/product/use-cases.md).
 
-Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; the relational PostgreSQL graph baseline remains planned.
+Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice compares Apache AGE and Neo4j; HugeGraph and the relational PostgreSQL graph baseline remain planned.
 
 A qualitative comparison of the direct clients is available in [Developer experience: PostgreSQL and specialized stores](docs/developer-experience.md).
 
@@ -42,7 +42,7 @@ Interactive database tools and built-in web interfaces are listed in [local stor
 | Area | Specialized store | PostgreSQL comparison | Representative use case and operations |
 | --- | --- | --- | --- |
 | Documents | CouchDB | JSONB with suitable GIN/expression indexes; a relational model as a separate experiment | Product catalog with variable attributes: create products, filter nested fields, apply partial updates, and aggregate categories. |
-| Graphs | Neo4j | Node/edge tables, indexed joins, and recursive CTEs | Software package dependency analysis: direct and transitive dependencies, change impact, and bounded path searches. |
+| Graphs | Neo4j and Apache HugeGraph | Node/edge tables, indexed joins, and recursive CTEs | Software package dependency analysis: direct and transitive dependencies, change impact, and bounded path searches. |
 | Vectors | Qdrant | PostgreSQL with pgvector; exact search and a suitable ANN index | Find similar documents: top-k neighbors, metadata filters, vector updates, and result quality assessment. |
 | Full-text search | OpenSearch | `tsvector`, `tsquery`, GIN, and ranking | Search knowledge articles: full-text queries, filters, ranking, and finding updated articles after indexing. |
 | Blob storage | RustFS (S3-compatible API) | PostgreSQL `bytea` with metadata columns; large objects as a separate experiment | Store and retrieve files by key: upload, full and range reads, metadata lookup, overwrite, and delete. |
@@ -67,11 +67,12 @@ Extensions follow only after a complete benchmark path exists for the core scope
 | PostgreSQL | SQL through `psql`, including pgvector queries | Psycopg | JDBC with pgJDBC |
 | CouchDB | Versioned REST requests, Mango queries, and views | Direct HTTP client | Java HTTP client from Kotlin |
 | Neo4j | Cypher files through `cypher-shell` | Neo4j Python driver | Neo4j Java driver from Kotlin |
+| Apache HugeGraph (planned) | Gremlin through the REST API | HugeGraph Python client | HugeGraph Java client from Kotlin |
 | Qdrant | Versioned JSON requests to REST, executed by a script | Qdrant Python client | Qdrant Java client from Kotlin |
 | OpenSearch | Versioned JSON requests to the search REST API | OpenSearch Python client | OpenSearch Java client from Kotlin |
 | RustFS | S3-compatible requests through a CLI or signed HTTP script | AWS SDK for Python (Boto3) with a RustFS endpoint | AWS SDK for Java from Kotlin with a RustFS endpoint |
 
-Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant clients](https://api.qdrant.tech/), and [RustFS S3 compatibility](https://docs.rustfs.com/en/reference/s3-compatibility).
+Qdrant does not need an invented scripting language: direct API requests are its native reference path. Kotlin-specific APIs and Java interoperability will be identified separately. References: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [HugeGraph clients and APIs](https://hugegraph.apache.org/docs/clients/), [Qdrant clients](https://api.qdrant.tech/), and [RustFS S3 compatibility](https://docs.rustfs.com/en/reference/s3-compatibility).
 
 Each variant includes setup, data loading, operations, and result validation. The first language baseline uses direct drivers without an ORM or substantial application framework. Coroutine, async, pooling, and framework variants are separate experiments so their effects remain visible.
 
@@ -203,7 +204,7 @@ This is a target structure. All five core use cases have local Compose environme
 | Phase | Deliverable | Acceptance criterion |
 | --- | --- | --- |
 | 1 — Measurement foundation and documents | Docker profiles, generator, CouchDB/JSONB, three implementation paths, direct and application measurements | A clean checkout reproduces a complete run with validated results, effective limits, and a report. |
-| 2 — Graphs | Neo4j versus PostgreSQL, multiple depths and degree distributions | All three implementation paths return the agreed results; query plans and saturation measurements are available. |
+| 2 — Graphs | Neo4j and HugeGraph versus PostgreSQL, multiple depths and degree distributions | All three implementation paths return the agreed results; query plans and saturation measurements are available. |
 | 3 — Vectors | Qdrant versus pgvector, exact reference and ANN profiles | Recall, filter semantics, and protocols are documented; performance is assessed at comparable quality. |
 | 4 — Full-text search | OpenSearch versus PostgreSQL full-text search, matched analyzers and relevance checks | Search results and update visibility meet the agreed contract; indexing costs and sustained performance are documented. |
 | 5 — Blob storage | RustFS versus PostgreSQL `bytea`, varied object sizes and read/write mixes | Bytes, range reads, metadata, and overwrite/delete behavior match the contract; throughput, latency, and storage footprint are reported. |

@@ -27,7 +27,7 @@ Zunächst werden Einzelinstanzen untersucht. Hochverfügbarkeit, verteilte Clust
 
 StoreBench ist ein eigenständiges Experimentierprojekt für den Data-Store-Katalog der Developer Platform. Die vorhandenen Plattformunterlagen nennen Dokument-, Graph- und Vektorlabs als mögliche Erweiterungen; sie belegen noch keinen bereitgestellten Katalog spezialisierter Stores. Die nachfolgende Auswahl ist deshalb ein Vorschlag und keine Aussage über bereits verfügbare Plattformservices.
 
-Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
+Ausführbare Funktionsbeispiele sind für [Dokumente](docs/documents.md), [Graphen](docs/graph.md), [Vektoren](docs/vector.md), [Volltextsuche](docs/search.md) und [Blob-Speicherung](docs/blob.md) vorhanden. Der Graph-Pfad umfasst derzeit Apache AGE und Neo4j; HugeGraph ist als weitere Kernoption geplant. Die erste Ausführung erfolgt direkt über lokales Docker Compose. Ergebnisse können später Architekturentscheidungen, Ressourcenprofile und Beispiele für die Plattform liefern. Die Benchmark-Läufe benötigen keine Plattformbereitstellung. Quellen zum Kontext: [Produktübersicht](../developer-platform/docs/product/overview.md) und [UC-05: technische Alternativen vergleichen](../developer-platform/docs/product/use-cases.md).
 
 Die qualitative Gegenüberstellung der direkten Clients steht unter [Entwicklerperspektive: PostgreSQL und spezialisierte Stores](docs/developer-experience.de.md).
 
@@ -40,7 +40,7 @@ Interaktive Datenbankwerkzeuge und integrierte Weboberflächen stehen unter [Lok
 | Bereich | Spezialisierter Store | PostgreSQL-Vergleich | Typischer Use Case und Operationen |
 | --- | --- | --- | --- |
 | Dokumente | CouchDB | JSONB mit passenden GIN-/Ausdrucksindizes; eine relationale Variante als separates Experiment | Produktkatalog mit variablen Attributen: Produkte anlegen, verschachtelte Felder filtern, Teiländerungen durchführen und Kategorien aggregieren. |
-| Graphen | Neo4j | Knoten-/Kantentabellen, indizierte Joins und rekursive CTEs | Abhängigkeitsanalyse von Softwarepaketen: direkte und transitive Abhängigkeiten, Auswirkungen einer Änderung und begrenzte Pfadsuche. |
+| Graphen | Neo4j und Apache HugeGraph | Knoten-/Kantentabellen, indizierte Joins und rekursive CTEs | Abhängigkeitsanalyse von Softwarepaketen: direkte und transitive Abhängigkeiten, Auswirkungen einer Änderung und begrenzte Pfadsuche. |
 | Vektoren | Qdrant | PostgreSQL mit pgvector; exakte Suche sowie geeigneter ANN-Index | Ähnliche Dokumente finden: Top-k-Nachbarn, Metadatenfilter, Vektoren aktualisieren und Trefferqualität bewerten. |
 | Volltextsuche | OpenSearch | `tsvector`, `tsquery`, GIN und Ranking | Wissensartikel durchsuchen: Volltextabfragen, Filter, Ranking und Wiederfinden nach Indexaktualisierung. |
 | Blob-Speicherung | RustFS (S3-kompatible API) | PostgreSQL `bytea` mit Metadatenspalten; Large Objects als separates Experiment | Dateien per Schlüssel speichern und lesen: Upload, vollständiges und bereichsweises Lesen, Metadatenabfrage, Überschreiben und Löschen. |
@@ -65,11 +65,12 @@ Die Erweiterungen folgen erst nach einem vollständigen Benchmark-Pfad im Kernum
 | PostgreSQL | SQL über `psql`, einschließlich pgvector-Abfragen | Psycopg | JDBC mit pgJDBC |
 | CouchDB | Versionierte REST-Requests, Mango-Abfragen und Views | Direkter HTTP-Client | Java-HTTP-Client aus Kotlin |
 | Neo4j | Cypher-Dateien über `cypher-shell` | Neo4j-Python-Treiber | Neo4j-Java-Treiber aus Kotlin |
+| Apache HugeGraph (geplant) | Gremlin über die REST-API | HugeGraph-Python-Client | HugeGraph-Java-Client aus Kotlin |
 | Qdrant | Versionierte JSON-Requests gegen REST, per Skript ausgeführt | Qdrant-Python-Client | Qdrant-Java-Client aus Kotlin |
 | OpenSearch | Versionierte JSON-Requests gegen die Such-REST-API | OpenSearch-Python-Client | OpenSearch-Java-Client aus Kotlin |
 | RustFS | S3-kompatible Requests per CLI oder signiertem HTTP-Skript | AWS SDK für Python (Boto3) mit RustFS-Endpunkt | AWS SDK für Java aus Kotlin mit RustFS-Endpunkt |
 
-Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [Qdrant-Clients](https://api.qdrant.tech/), [RustFS-S3-Kompatibilität](https://docs.rustfs.com/en/reference/s3-compatibility).
+Qdrant benötigt keine erfundene eigene Skriptsprache: direkte API-Requests bilden hier den nativen Referenzweg. Bei Kotlin ist sichtbar zu unterscheiden zwischen Kotlin-spezifischer API und Java-Interoperabilität. Grundlagen: [CouchDB HTTP API](https://docs.couchdb.org/en/stable/api/), [Neo4j Java](https://neo4j.com/docs/java-manual/current/query-simple/), [HugeGraph-Clients und -APIs](https://hugegraph.apache.org/docs/clients/), [Qdrant-Clients](https://api.qdrant.tech/), [RustFS-S3-Kompatibilität](https://docs.rustfs.com/en/reference/s3-compatibility).
 
 Jede Variante enthält Setup, Dateneinspielung, Operationen und Ergebnisvalidierung. Die erste Sprachbaseline verwendet direkte Treiber ohne ORM oder umfangreiches Anwendungsframework. Coroutine-, Async-, Pooling- und Framework-Varianten werden als eigene Versuche ausgewiesen, damit ihre Effekte erkennbar bleiben.
 
@@ -201,7 +202,7 @@ Dies ist eine Zielstruktur. Die fünf Kern-Use-Cases besitzen lokale Compose-Umg
 | Phase | Ergebnis | Abnahme |
 | --- | --- | --- |
 | 1 — Messfundament und Dokumente | Docker-Profile, Generator, CouchDB/JSONB, drei Implementierungswege, Direkt- und Anwendungsmessung | Ein sauberer Checkout reproduziert einen vollständigen Lauf mit validierten Ergebnissen, wirksamen Limits und Bericht. |
-| 2 — Graphen | Neo4j gegen PostgreSQL, mehrere Tiefen und Gradverteilungen | Alle drei Implementierungswege liefern die vereinbarten Ergebnisse; Abfragepläne und Sättigungsmessungen liegen vor. |
+| 2 — Graphen | Neo4j und HugeGraph gegen PostgreSQL, mehrere Tiefen und Gradverteilungen | Alle drei Implementierungswege liefern die vereinbarten Ergebnisse; Abfragepläne und Sättigungsmessungen liegen vor. |
 | 3 — Vektoren | Qdrant gegen pgvector, exakte Referenz und ANN-Profile | Recall, Filtersemantik und Protokolle sind dokumentiert; Performance wird bei vergleichbarer Qualität ausgewertet. |
 | 4 — Volltextsuche | OpenSearch gegen PostgreSQL-Volltextsuche, abgestimmte Analyzer und Relevanzprüfungen | Suchergebnisse und Sichtbarkeit nach Änderungen erfüllen den vereinbarten Vertrag; Indexkosten und nachhaltige Performance sind dokumentiert. |
 | 5 — Blob-Speicherung | RustFS gegen PostgreSQL `bytea`, unterschiedliche Objektgrößen und Lese-/Schreibmuster | Bytes, Bereichsabfragen, Metadaten und Überschreib-/Löschverhalten erfüllen den Vertrag; Durchsatz, Latenz und Speicherbedarf sind dokumentiert. |

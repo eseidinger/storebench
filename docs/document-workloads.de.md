@@ -71,4 +71,14 @@ Der Datenbestand bleibt während der Messung begrenzt und reproduzierbar. IDs f�
 4. Die gemeinsame [Messmethodik](benchmark-tests.de.md) anwenden: Aufwärmphase, wiederholte Messläufe, Variation von angebotener Rate und Nebenläufigkeit, Rücksetzen nach Schreibvorgängen sowie ein gesonderter Dauertest. Angebotene und abgeschlossene Operationen/s, p50/p95/p99 je Operation, Fehler, Timeouts, Wiederholungen, Sichtbarkeitsverzögerung, übertragene Bytes, CPU, Speicher, I/O sowie Daten- und Indexgröße erfassen.
 5. Den höchsten nachhaltigen Durchsatz veröffentlichen, der die vorher festgelegten Grenzen für Latenz, Fehler, Korrektheit und Sichtbarkeit einhält. Einzelne Wiederholungen und unerfüllte Vertragsanforderungen beilegen. Die drei Profile nicht zu einer einzigen Gesamtpunktzahl zusammenfassen.
 
-Der vorhandene Vertrag mit sechs Produkten dient zuerst als Regressionstest. Generator, größere Fixtures, Indizes für gleichwertige Seitenabfragen, Nebenläufigkeitsprüfungen und Mess-Runner sind noch umzusetzen, bevor die beschriebenen Profile Benchmark-Ergebnisse liefern können.
+## Erster implementierter Vorbereitungsschritt
+
+Das versionierte [Profil für die Katalogsuche](../workloads/documents/profiles/storefront-v1.json) legt zunächst 10.000 Produkte, 1.000 logische Anfragen, die acht Operationsanteile sowie Parameter für Kategorien, optionale Felder, Dokumentgrößen, Punktabfragen, Filter und Seiten fest. Der [Generator](../scripts/generate_document_workload.py) erzeugt daraus ohne Datenbankzugriff drei Dateien:
+
+```bash
+python3 scripts/generate_document_workload.py
+```
+
+Standardziel ist `results/documents/storefront-v1/`; mit `--profile` und `--output` lassen sich Eingabeprofil und Zielverzeichnis angeben. `documents.jsonl` enthält die Anfangsdokumente. `requests.jsonl` enthält die geordnete Anfragefolge mit Eingaben und erwarteten Ergebnissen. `manifest.json` hält Profil-, Generator- und Datei-Prüfsummen sowie tatsächlich erzeugte Verteilungen und Trefferzahlen fest. Das Ergebnisverzeichnis wird nicht versioniert. Die sechs vorhandenen Smoke-Test-Produkte und deren Generator bleiben unverändert.
+
+Die Erwartungswerte in `requests.jsonl` gelten für die **serielle** Ausführung in der angegebenen Reihenfolge. Sie dienen der Konformitätsprüfung. Für spätere parallele Messungen müssen konkurrierende Zustandsänderungen anhand von Invarianten und zulässigen Ergebnissen geprüft werden; die seriellen Einzelwerte dürfen dort nicht ungeprüft als Sollwerte gelten. Das aktuelle Profil enthält keine Löschanfragen (P8 = 0); der Generator weist Profile mit P8-Anteil ab. Indizes für gleichwertige Seitenabfragen, Nebenläufigkeitsprüfungen und Mess-Runner sind noch umzusetzen, bevor diese Eingaben Benchmark-Ergebnisse liefern können.

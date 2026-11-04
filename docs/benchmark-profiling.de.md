@@ -1,6 +1,6 @@
 # Profiling-Plan für die Benchmark-Tests
 
-Dieses Dokument ergänzt die [geplanten Benchmark-Tests](benchmark-tests.de.md). Es beschreibt ausschließlich lokales Profiling mit Docker Compose: Container-Ressourcen, Client-Zeiten und gezielte Store-Diagnose. Ein Prometheus-/Grafana-Stack ist dafür nicht erforderlich. Für Dokumente existieren inzwischen eine [serielle diagnostische Direktmessung und kontrollierte Read-only-Last](document-workloads.de.md#kontrollierte-read-only-last) mit lokalen Artefakten. Ressourcensampler, Parallelmodell für Schreibvorgänge und vollständiger Benchmark-Bericht sind noch nicht implementiert; belastbare Vergleichsergebnisse liegen nicht vor.
+Dieses Dokument ergänzt die [geplanten Benchmark-Tests](benchmark-tests.de.md). Es beschreibt ausschließlich lokales Profiling mit Docker Compose: Container-Ressourcen, Client-Zeiten und gezielte Store-Diagnose. Ein Prometheus-/Grafana-Stack ist dafür nicht erforderlich. Für Dokumente existieren inzwischen eine [serielle Direktmessung, kontrollierte Read-only-Last und lokale Ressourcenmessung](document-workloads.de.md#orchestrierung-und-ressourcenmessung) mit Artefakten. Das Parallelmodell für Schreibvorgänge und ein vollständiger Benchmark-Bericht sind noch nicht implementiert; belastbare Vergleichsergebnisse liegen nicht vor.
 
 ## 1. Messarchitektur und Vergleichsgrenze
 
@@ -41,7 +41,7 @@ Raten entstehen nur aus benachbarten gültigen Samples desselben Containers und 
 
 Vor dem Lauf werden mit `docker compose -f infrastructure/<use-case>.compose.yaml ps` die beteiligten Container ermittelt und ihre IDs im Manifest gespeichert. Die tatsächlichen CPU-/RAM-Limits werden mit `docker inspect` geprüft. Ein Host-Snapshot hält CPU, RAM, Swap, freien Plattenplatz und Dateisystem fest; Host- oder Lastgenerator-Überlast macht den Lauf für eine Store-Kapazitätsaussage ungeeignet. Die [Linux-cgroup-Dokumentation](https://docs.kernel.org/admin-guide/cgroup-v2.html) beschreibt ergänzende `cpu.stat`, `memory.events` und `io.stat`-Zähler. Falls sie lokal zugänglich sind, können sie als getrennte Diagnosewerte erfasst werden. Ein Wert, der nicht erhoben wurde, wird nie als Null interpretiert.
 
-Die Rohdaten und alle Auswertungen bleiben im lokalen Verzeichnis `results/<run_id>/`. Eine grafische Auswertung kann aus den Dateien erzeugt werden; dafür ist kein laufender Monitoring-Dienst nötig. Da der Sampler noch nicht implementiert ist, sind Dateiformat und Feldnamen ein Zielvertrag und keine bereits ausführbare Schnittstelle.
+Die Rohdaten und alle Auswertungen bleiben im lokalen Verzeichnis `results/<run_id>/`. Eine grafische Auswertung kann aus den Dateien erzeugt werden; dafür ist kein laufender Monitoring-Dienst nötig. Für Dokumente ist der [Store-/Host-Client-Sampler](document-workloads.de.md#orchestrierung-und-ressourcenmessung) implementiert. Er erfasst tatsächliche Abstände, fehlende Werte und Fehler; seine Kosten sind vor einer belastbaren Kapazitätsaussage noch zu prüfen. Der allgemeine Sampler für weitere Use Cases bleibt geplant.
 
 ## 3. Zeitmessung im Client
 
@@ -67,7 +67,7 @@ Der Runner schreibt pro Operation einen Histogrammwert und aggregiert nach Test-
 | Diagnose | Store-API-Snapshots vor/nach dem Lauf; zusätzliche Client-/Store-Profile nur in P2 |
 | Ablage | Ein lokales Verzeichnis pro `run_id`, mit Prüfsummen und Vollständigkeitsprüfung nach Laufende |
 
-Der Sampler und Reporter sind geplante StoreBench-Bausteine. Die vorhandenen Compose-Umgebungen und `seed`/`run`/`verify`-Skripte dienen weiterhin der Funktionsprüfung; ihre Laufzeiten sind keine Benchmark-Ergebnisse. Der direkte Dokument-Runner und die Read-only-Last erfassen einzelne Clientzeiten und lokale Rohdaten; Ressourcenzeitreihen fehlen noch. Logs können als begrenzte lokale Dateien abgelegt werden. Optionale Traces sind nur sinnvoll, wenn ihre Erfassung und Kosten für den jeweiligen P1-/P2-Lauf dokumentiert werden. Weder Collector-Dienste noch Dashboards gehören zum erforderlichen Aufbau.
+Der allgemeine Sampler und Reporter sind geplante StoreBench-Bausteine; die Dokument-Variante des Samplers ist vorhanden. Die Compose-Umgebungen und `seed`/`run`/`verify`-Skripte dienen weiterhin der Funktionsprüfung; ihre Laufzeiten sind keine Benchmark-Ergebnisse. Der direkte Dokument-Runner und die Read-only-Last erfassen einzelne Clientzeiten und lokale Rohdaten. Logs können als begrenzte lokale Dateien abgelegt werden. Optionale Traces sind nur sinnvoll, wenn ihre Erfassung und Kosten für den jeweiligen P1-/P2-Lauf dokumentiert werden. Weder Collector-Dienste noch Dashboards gehören zum erforderlichen Aufbau.
 
 Ein Diagnose-Snapshot liest lokal verfügbare Store-Statistiken und Konfiguration vor/nach dem Lauf. Er speichert Antwort, Erfassungszeit und Fehler unter `store-snapshots/`. Benötigt eine Statistik erhöhte Store-Rechte, werden diese nur für den lokalen Diagnosezugriff verwendet und nicht im Manifest oder in Artefakten gespeichert. Fehlt die Berechtigung, bleibt die Quelle mit Grund `unavailable`. Ein Snapshot ersetzt kein Backup.
 

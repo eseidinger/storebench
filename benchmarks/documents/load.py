@@ -258,27 +258,35 @@ def run(args):
         for number in range(1, args.repetitions + 1):
             repetition_dir = output / f"repeat-{number:02d}"
             repetition_dir.mkdir()
+            phases = {}
             admin = factory()
             try:
                 if "store_version" not in manifest:
                     manifest["store_version"] = store_version(admin)
+                phases["setup_started_utc"] = utc_now()
                 setup_started = time.perf_counter_ns()
                 admin.seed(documents)
                 setup_ns = time.perf_counter_ns() - setup_started
+                phases["setup_finished_utc"] = utc_now()
             finally:
                 admin.close()
             pool = ClientPool(factory, args.concurrency)
             try:
+                phases["warmup_started_utc"] = utc_now()
                 warmup = run_phase(pool, requests, args.rate, args.warmup_seconds, Recorder()) \
                     if args.warmup_seconds else None
+                phases["warmup_finished_utc"] = utc_now()
                 if warmup and warmup["errors"]:
                     raise RuntimeError(f"Warmup had {warmup['errors']} errors")
                 with (repetition_dir / "operations.jsonl").open("wb") as stream:
+                    phases["measure_started_utc"] = utc_now()
                     measured = run_phase(pool, requests, args.rate, args.measure_seconds, Recorder(stream))
+                    phases["measure_finished_utc"] = utc_now()
             finally:
                 pool.close()
             summary = {"repetition": number, "setup_ns": setup_ns, "warmup": warmup,
-                       "measure": measured, "status": "passed" if not measured["errors"] else "failed"}
+                       "measure": measured, "phase_intervals": phases,
+                       "status": "passed" if not measured["errors"] else "failed"}
             summary["within_provisional_targets"] = (
                 measured["end_to_end_p95_ns"] is not None and
                 measured["end_to_end_p95_ns"] <= args.latency_target_ms * 1e6 and

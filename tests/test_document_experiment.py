@@ -1,5 +1,7 @@
 """Check experiment ordering, gates and per-run aggregation without Docker."""
+import json
 import unittest
+from pathlib import Path
 
 from benchmarks.documents.experiment import markdown_report, schedule, summarize, validate_plan
 
@@ -14,6 +16,31 @@ def plan():
 
 
 class ExperimentTest(unittest.TestCase):
+    def test_write_profiles_cover_highest_rate_and_schedule_both_stores(self):
+        root = Path(__file__).resolve().parents[1]
+        for name in ("catalog-maintenance-write-v1", "contested-stock-write-v1"):
+            with self.subTest(profile=name):
+                path = root / "workloads/documents/profiles" / f"{name}.json"
+                write_plan = validate_plan(json.loads(path.read_text()))
+                self.assertEqual(write_plan["workload"], "write")
+                self.assertEqual(len(schedule(write_plan)), 62)
+                self.assertEqual({step["store"] for step in schedule(write_plan)},
+                                 {"postgres", "couchdb"})
+
+    def test_write_profile_supports_short_experiment_settings(self):
+        root = Path(__file__).resolve().parents[1]
+        path = root / "workloads/documents/profiles/contested-stock-write-v1.json"
+        source = json.loads(path.read_text())
+        source.update(repetitions=1, warmup_seconds=0.5, measure_seconds=3,
+                      latency_target_ms=200, max_failure_rate=0.1)
+        resolved = validate_plan(source)
+        self.assertEqual(resolved["repetitions"], 1)
+        self.assertEqual(resolved["warmup_seconds"], 0.5)
+        self.assertEqual(resolved["measure_seconds"], 3)
+        self.assertEqual(resolved["latency_target_ms"], 200)
+        self.assertEqual(resolved["max_failure_rate"], 0.1)
+        self.assertEqual(source["input_profile"], "storefront-v1")
+
     def test_schedule_balances_order_and_pairs(self):
         steps = schedule(validate_plan(plan()))
         self.assertEqual(steps, schedule(plan()))
@@ -56,6 +83,31 @@ class ExperimentTest(unittest.TestCase):
         bad["concurrencies"] = [1, 1]
         with self.assertRaises(ValueError):
             validate_plan(bad)
+
+    def test_write_report_keeps_conflicts_and_business_rejections_separate(self):
+        root = Path(__file__).resolve().parents[1]
+        path = root / "workloads/documents/profiles/catalog-maintenance-write-v1.json"
+        write_plan = json.loads(path.read_text())
+        write_plan.update(concurrencies=[8], rates_per_second=[20], repetitions=1)
+        write_plan["sampler_overhead"]["pairs"] = 1
+        rows = []
+        for step in schedule(validate_plan(write_plan)):
+            rows.append({**step, "status": "passed", "qualifies": True,
+                         "setup_ns": 1_000_000_000,
+                         "preparation": {"elapsed_ns": 2_000_000_000,
+                                         "storage": {"index_file_bytes": 1_048_576}},
+                         "measure": {"completed_within_window_per_second": 18,
+                                     "end_to_end_p95_ns": 20_000_000,
+                                     "technical_failure_rate": 0.05, "conflicts": 4,
+                                     "statuses": {"ok": 18, "conflict_exhausted": 1,
+                                                  "condition_rejected": 1}}})
+        summary = summarize(rows, write_plan)
+        self.assertEqual(summary["matrix"][0]["conflicts_per_run_median"], 4)
+        self.assertEqual(summary["matrix"][0]["condition_rejected_per_run_median"], 1)
+        rendered = markdown_report({"workload": "write", "runs": rows, "summary": summary})
+        self.assertIn("# Document concurrent-write experiment", rendered)
+        self.assertIn("## Write outcomes", rendered)
+        self.assertIn("Stock rejected", rendered)
 
 
 if __name__ == "__main__":

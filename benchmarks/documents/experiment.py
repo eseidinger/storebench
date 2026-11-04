@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run and report an ordered, paired document read-only experiment."""
+"""Run and report ordered, paired document read or write experiments."""
 import argparse
 import hashlib
 import json
@@ -28,8 +28,17 @@ def finite_positive(value):
 
 
 def validate_plan(plan):
+    plan = dict(plan)
+    workload = plan.get("workload", "read")
+    if workload == "write":
+        if not isinstance(plan.get("name"), str) or not plan["name"] or \
+           not isinstance(plan.get("operation_percent"), dict) or \
+           not isinstance(plan.get("request_count"), int):
+            raise ValueError("Write experiment requires a complete write workload profile")
     if plan.get("version") != 1 or not isinstance(plan.get("seed"), int):
         raise ValueError("Expected experiment plan version 1 and an integer seed")
+    if workload not in ("read", "write"):
+        raise ValueError("workload must be read or write")
     if not isinstance(plan.get("input_profile"), str) or not plan["input_profile"]:
         raise ValueError("input_profile must name the fixture profile")
     for key in ("concurrencies", "rates_per_second"):
@@ -58,6 +67,11 @@ def validate_plan(plan):
        overhead.get("concurrency") not in plan["concurrencies"] or \
        overhead.get("rate_per_second") not in plan["rates_per_second"]:
         raise ValueError("sampler_overhead requires positive pairs and a matrix point")
+    if workload == "write":
+        required = math.ceil(max(plan["rates_per_second"]) *
+                             max(plan["warmup_seconds"], plan["measure_seconds"]))
+        if plan["request_count"] < required:
+            raise ValueError(f"Write profile needs at least {required} requests for the highest rate")
     return plan
 
 
@@ -90,15 +104,19 @@ def schedule(plan):
     return steps
 
 
-def run_step(step, plan, input_dir, output):
+def run_step(step, plan, input_dir, output, write_profile=None):
+    workload = plan.get("workload", "read")
     command = [sys.executable, str(ROOT / "benchmarks/documents/orchestrate.py"),
-               "--store", step["store"], "--input", str(input_dir), "--output", str(output),
+               "--workload", workload, "--store", step["store"],
+               "--input", str(input_dir), "--output", str(output),
                "--rate", str(step["rate_per_second"]), "--concurrency", str(step["concurrency"]),
                "--warmup-seconds", str(plan["warmup_seconds"]),
                "--measure-seconds", str(plan["measure_seconds"]), "--repetitions", "1",
                "--sample-interval", str(plan["sample_interval_seconds"]),
                "--latency-target-ms", str(plan["latency_target_ms"]),
                "--max-failure-rate", str(plan["max_failure_rate"])]
+    if workload == "write":
+        command.extend(["--write-profile", str(write_profile)])
     if not step["sampler_enabled"]:
         command.append("--no-sampler")
     completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
@@ -118,6 +136,13 @@ def run_step(step, plan, input_dir, output):
         result["resource_sample_count"] = orchestration.get("resource_sample_count")
     if load_path.exists():
         load = json.loads(load_path.read_text(encoding="utf-8"))
+        result["load_kind_ok"] = load.get("kind") == (
+            "open-loop-concurrent-document-writes" if workload == "write"
+            else "open-loop-read-only-direct-client")
+        if workload == "write":
+            result["write_profile_sha256"] = load.get("profile_sha256")
+            result["write_profile_ok"] = load.get("profile_sha256") == hashlib.sha256(
+                write_profile.read_bytes()).hexdigest()
         if load.get("repetitions"):
             repetition = load["repetitions"][0]
             result["measure"] = repetition["measure"]
@@ -125,6 +150,8 @@ def run_step(step, plan, input_dir, output):
             result["preparation"] = repetition.get("preparation")
             result["correctness_status"] = repetition["status"]
             result["within_provisional_targets"] = repetition["within_provisional_targets"]
+            if workload == "write":
+                result["validation"] = repetition.get("validation")
     intervals = result.get("actual_sample_intervals") or {}
     sample_ok = (not step["sampler_enabled"] or
                  (intervals.get("count", 0) >= 1 and
@@ -133,7 +160,10 @@ def run_step(step, plan, input_dir, output):
     result["sample_interval_ok"] = sample_ok
     result["status"] = "passed" if completed.returncode == 0 and \
         result.get("orchestration_status") == "passed" and \
-        result.get("correctness_status") == "passed" and "measure" in result and sample_ok else "failed"
+        result.get("correctness_status") == "passed" and "measure" in result and sample_ok and \
+        result.get("load_kind_ok") is True and \
+        (workload != "write" or (result.get("write_profile_ok") is True and
+                                 (result.get("validation") or {}).get("status") == "passed")) else "failed"
     result["qualifies"] = result["status"] == "passed" and result.get("within_provisional_targets") is True
     return result
 
@@ -156,18 +186,30 @@ def summarize(results, plan):
         index_bytes = [run["preparation"]["storage"]["index_file_bytes"] for run in runs
                        if run.get("preparation") and run["preparation"].get("storage") and
                        run["preparation"]["storage"].get("index_file_bytes") is not None]
-        matrix.append({"store": store, "concurrency": concurrency, "rate_per_second": rate,
-                       "runs": len(runs), "expected_runs": plan["repetitions"],
-                       "all_qualify": len(runs) == plan["repetitions"] and
-                       all(run["qualifies"] for run in runs),
-                       "completed_per_second_median": statistics.median(throughput) if throughput else None,
-                       "completed_per_second_range": [min(throughput), max(throughput)] if throughput else None,
-                       "run_p95_ms_median": statistics.median(p95) if p95 else None,
-                       "run_p95_ms_range": [min(p95), max(p95)] if p95 else None,
-                       "setup_seconds_median": statistics.median(setup) if setup else None,
-                       "preparation_seconds_median": statistics.median(preparation) if preparation else None,
-                       "index_file_mib_median": statistics.median(index_bytes) / (1024 ** 2)
-                       if index_bytes else None})
+        point = {"store": store, "concurrency": concurrency, "rate_per_second": rate,
+                 "runs": len(runs), "expected_runs": plan["repetitions"],
+                 "all_qualify": len(runs) == plan["repetitions"] and
+                 all(run["qualifies"] for run in runs),
+                 "completed_per_second_median": statistics.median(throughput) if throughput else None,
+                 "completed_per_second_range": [min(throughput), max(throughput)] if throughput else None,
+                 "run_p95_ms_median": statistics.median(p95) if p95 else None,
+                 "run_p95_ms_range": [min(p95), max(p95)] if p95 else None,
+                 "setup_seconds_median": statistics.median(setup) if setup else None,
+                 "preparation_seconds_median": statistics.median(preparation) if preparation else None,
+                 "index_file_mib_median": statistics.median(index_bytes) / (1024 ** 2)
+                 if index_bytes else None}
+        if plan.get("workload", "read") == "write":
+            failures = [run["measure"]["technical_failure_rate"] for run in runs
+                        if run.get("measure") and run["measure"].get("technical_failure_rate") is not None]
+            conflicts = [run["measure"]["conflicts"] for run in runs
+                         if run.get("measure") and run["measure"].get("conflicts") is not None]
+            point["technical_failure_rate_median"] = statistics.median(failures) if failures else None
+            point["conflicts_per_run_median"] = statistics.median(conflicts) if conflicts else None
+            for status in ("conflict_exhausted", "condition_rejected", "duplicate_rejected", "dropped"):
+                values = [run["measure"]["statuses"].get(status, 0) for run in runs
+                          if run.get("measure") and run["measure"].get("statuses") is not None]
+                point[f"{status}_per_run_median"] = statistics.median(values) if values else None
+        matrix.append(point)
     for store in STORES:
         for concurrency in plan["concurrencies"]:
             qualified = [point for point in matrix if point["store"] == store and
@@ -211,7 +253,9 @@ def summarize(results, plan):
 
 
 def markdown_report(report):
-    lines = ["# Document read-only experiment", "",
+    workload = report.get("workload", "read")
+    title = "Document concurrent-write experiment" if workload == "write" else "Document read-only experiment"
+    lines = [f"# {title}", "",
              f"Runs: {len(report['runs'])}; execution complete: {report['summary']['complete']}.", "",
              "A point qualifies only when every independent run passes correctness, latency, failure,",
              "resource and sampling checks. Run p95 values are summarized by median and range;",
@@ -232,6 +276,21 @@ def markdown_report(report):
                      f"{row['all_qualify']} | {row['runs']}/{row['expected_runs']} | "
                      f"{row['completed_per_second_median']} {row['completed_per_second_range']} | "
                      f"{row['run_p95_ms_median']} {row['run_p95_ms_range']} |")
+    if workload == "write":
+        lines += ["", "## Write outcomes", "",
+                  "p95 covers successful logical writes. Technical failures are unexpected errors,",
+                  "dropped requests and exhausted conflicts. Duplicate and stock-condition rejections",
+                  "are business outcomes and are reported separately. All values below are medians",
+                  "of independent run-level counts or rates.", "",
+                  "| Store | Workers | Offered/s | Technical failure rate | Conflicts | Exhausted | Stock rejected | Duplicate rejected | Dropped |",
+                  "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+        for row in report["summary"]["matrix"]:
+            lines.append(f"| {row['store']} | {row['concurrency']} | {row['rate_per_second']} | "
+                         f"{row['technical_failure_rate_median']} | {row['conflicts_per_run_median']} | "
+                         f"{row['conflict_exhausted_per_run_median']} | "
+                         f"{row['condition_rejected_per_run_median']} | "
+                         f"{row['duplicate_rejected_per_run_median']} | "
+                         f"{row['dropped_per_run_median']} |")
     lines += ["", "## Setup and index footprint", "",
               "Setup includes fixture loading and index creation. Preparation includes lazy index builds,",
               "view builds and correctness diagnostics. Index sizes are measured after preparation.", "",
@@ -266,22 +325,33 @@ def run(args):
         raise ValueError(f"Input fixture profile {input_manifest.get('profile')!r} does not match "
                          f"experiment plan {plan['input_profile']!r}")
     output = args.output or ROOT / "results/documents/experiments" / \
-        f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:8]}"
+        f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{plan.get('workload', 'read')}-{uuid.uuid4().hex[:8]}"
     output.mkdir(parents=True, exist_ok=False)
     (output / "plan.json").write_bytes(plan_bytes)
+    profile_copy = None
+    if plan.get("workload", "read") == "write":
+        profile_copy = output / "plan.json"
     steps = schedule(plan)
-    report = {"kind": "document-read-only-experiment", "plan": str(args.plan),
+    workload = plan.get("workload", "read")
+    report = {"kind": "document-concurrent-write-experiment" if workload == "write"
+              else "document-read-only-experiment", "workload": workload,
+              "plan": str(args.plan),
               "plan_copy": str(output / "plan.json"),
               "plan_sha256": hashlib.sha256(plan_bytes).hexdigest(),
               "input_profile": plan["input_profile"],
               "input_manifest_sha256": hashlib.sha256(input_manifest_bytes).hexdigest(),
               "started_utc": datetime.now(timezone.utc).isoformat(), "runs": []}
+    if profile_copy is not None:
+        profile = json.loads(profile_copy.read_text(encoding="utf-8"))
+        report["write_profile"] = profile["name"]
+        report["write_profile_copy"] = str(profile_copy)
+        report["write_profile_sha256"] = hashlib.sha256(profile_copy.read_bytes()).hexdigest()
     for number, step in enumerate(steps, 1):
         target = output / f"run-{number:03d}-{step['kind']}-{step['store']}"
         print(f"[{number}/{len(steps)}] {step['kind']} {step['store']} "
               f"workers={step['concurrency']} rate={step['rate_per_second']} "
               f"sampler={step['sampler_enabled']}", flush=True)
-        result = run_step(step, plan, args.input, target)
+        result = run_step(step, plan, args.input, target, profile_copy)
         report["runs"].append(result)
         write_json(output / "progress.json", report)
     report["finished_utc"] = datetime.now(timezone.utc).isoformat()

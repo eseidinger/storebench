@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "workload": "write",
   "name": "contested-stock-write-v1",
   "input_profile": "storefront-v1",
   "seed": 20261105,
@@ -16,5 +17,10 @@
   "max_attempts": 3,
   "retry_backoff_ms": 1,
   "latency_target_ms": 100,
-  "max_failure_rate": 0.05
+  "max_failure_rate": 0.05,
+  "concurrencies": [1, 8, 32],
+  "rates_per_second": [5, 20, 80],
+  "sample_interval_seconds": 1,
+  "max_sample_interval_factor": 2.5,
+  "sampler_overhead": {"concurrency": 8, "rate_per_second": 20, "pairs": 2}
 }

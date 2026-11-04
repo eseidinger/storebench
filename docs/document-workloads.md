@@ -167,7 +167,14 @@ Results in `results/documents/experiments/<run_id>/` include a copy of `plan.jso
 
 ## Concurrent P5–P7 write load
 
-The [write runner](../benchmarks/documents/write_load.py) uses the same initial fixture as the read load and a separate deterministic request trace. Two versioned profiles cover [catalog maintenance](../workloads/documents/profiles/catalog-maintenance-write-v1.json), creating P5 documents and spreading P6/P7 over 100 keys, and [contested stock](../workloads/documents/profiles/contested-stock-write-v1.json), concentrating mostly P7 on one key. Both now use 30 seconds of warmup, 60 seconds of measurement and three repetitions, matching the read-only experiment plan. Their traces contain 2,000 and 6,000 requests with unique sequence numbers, enough for 1,200 and 4,800 offered requests per measured phase. Offered rate, concurrency, mix, hot-key count, negative-delta share, retry limit and backoff are profile parameters. These durations are exploratory starting values, not a completed capacity assessment.
+The [write runner](../benchmarks/documents/write_load.py) uses the same initial fixture as the read load and a separate deterministic request trace. Two versioned profiles cover [catalog maintenance](../workloads/documents/profiles/catalog-maintenance-write-v1.json), creating P5 documents and spreading P6/P7 over 100 keys, and [contested stock](../workloads/documents/profiles/contested-stock-write-v1.json), concentrating mostly P7 on one key. Both use 30 seconds of warmup, 60 seconds of measurement and three repetitions. Each trace contains 6,000 requests with unique sequence numbers, enough for 4,800 offered requests at 80/s per measured phase. Offered rate, concurrency, mix, hot-key count, negative-delta share, retry limit and backoff are profile parameters. These durations are exploratory starting values, not a completed capacity assessment.
+
+Each write profile also contains the rate/concurrency matrix and paired sampler checks. Its `seed` determines both the deterministic request trace and reproducible store ordering in the experiment. Scalar rate and concurrency are defaults for a direct orchestrator run; the experiment uses the matrix values instead. Warmup, measurement duration, repetitions and quality limits apply to both commands. The experiment controller records one profile copy as `plan.json`. A full experiment has 62 runs and at least 93 minutes of warmup and measurement, plus resets and preparation.
+
+```bash
+.venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/catalog-maintenance-write-v1.json
+.venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/contested-stock-write-v1.json
+```
 
 ```bash
 for profile in catalog-maintenance-write-v1 contested-stock-write-v1; do

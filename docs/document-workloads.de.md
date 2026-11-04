@@ -167,7 +167,14 @@ Unter `results/documents/experiments/<run_id>/` entstehen eine Kopie von `plan.j
 
 ## Parallele Schreiblast P5–P7
 
-Der [Schreib-Runner](../benchmarks/documents/write_load.py) verwendet denselben Anfangsbestand wie die Leselast, aber einen eigenen deterministischen Anfragestrom. Zwei versionierte Profile decken [Katalogpflege](../workloads/documents/profiles/catalog-maintenance-write-v1.json) mit P5-Anlagen sowie P6/P7 auf 100 verteilten IDs und [umkämpften Bestand](../workloads/documents/profiles/contested-stock-write-v1.json) mit überwiegend P7 auf einer ID ab. Beide Profile verwenden jetzt wie der Read-only-Versuchsplan 30 s Warm-up, 60 s Messung und drei Wiederholungen. Die Request-Traces enthalten 2.000 beziehungsweise 6.000 Anfragen mit eindeutigen Sequenznummern; damit reichen sie für 1.200 beziehungsweise 4.800 Angebote je Messphase. Angebotene Rate, Workerzahl, Mix, Hot-Key-Zahl, Anteil negativer Bestandsänderungen sowie Versuchslimit und Wartezeit sind im Profil festgelegt und können teilweise per CLI überschrieben werden. Diese Dauer ist ein explorativer Startwert, keine abgeschlossene Kapazitätsmessung.
+Der [Schreib-Runner](../benchmarks/documents/write_load.py) verwendet denselben Anfangsbestand wie die Leselast, aber einen eigenen deterministischen Anfragestrom. Zwei versionierte Profile decken [Katalogpflege](../workloads/documents/profiles/catalog-maintenance-write-v1.json) mit P5-Anlagen sowie P6/P7 auf 100 verteilten IDs und [umkämpften Bestand](../workloads/documents/profiles/contested-stock-write-v1.json) mit überwiegend P7 auf einer ID ab. Beide Profile verwenden 30 s Warm-up, 60 s Messung und drei Wiederholungen. Ihre Request-Traces enthalten jeweils 6.000 Anfragen mit eindeutigen Sequenznummern; das reicht auch für 4.800 Angebote bei 80/s je Messphase. Angebotene Rate, Workerzahl, Mix, Hot-Key-Zahl, Anteil negativer Bestandsänderungen sowie Versuchslimit und Wartezeit sind im Profil festgelegt und können teilweise per CLI überschrieben werden. Diese Dauer ist ein explorativer Startwert, keine abgeschlossene Kapazitätsmessung.
+
+Jedes Schreibprofil enthält zugleich die Matrix aus Raten und Workern sowie die Sampler-Vergleichspaare. Der `seed` bestimmt sowohl den deterministischen Schreibstrom als auch die reproduzierbare Store-Reihenfolge im Experiment. Die skalaren Werte für Rate und Workerzahl gelten für den direkten Orchestrator-Lauf; im Experiment werden stattdessen die Matrixwerte verwendet. Warm-up, Messdauer, Wiederholungen und Qualitätsgrenzen gelten für beide Aufrufarten. Der Experiment-Controller speichert eine Kopie des Profils als `plan.json` im Ergebnisordner. Ein vollständiges Experiment umfasst 62 Einzelläufe und mindestens 93 Minuten Warm-up und Messung zuzüglich Reset und Vorbereitung.
+
+```bash
+.venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/catalog-maintenance-write-v1.json
+.venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/contested-stock-write-v1.json
+```
 
 ```bash
 for profile in catalog-maintenance-write-v1 contested-stock-write-v1; do

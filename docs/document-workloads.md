@@ -113,3 +113,25 @@ docker compose -f infrastructure/documents.compose.yaml down
 The runner writes `operations.jsonl`, `summary.json`, and `manifest.json` under `results/documents/runs/<run_id>/`. Use `--input` for a different generated fixture, `--output` for a new output directory, and `--warmup-requests` to set the number of read warmup operations. A monotonic clock measures each direct client call through full response decoding as `elapsed_ns`. Reference validation happens afterward and appears as `validation_ns`. For writes it includes an extra point read, which can affect the state seen by the next request. Result sizes are **logical serialized bytes**, not measured network bytes. The summary reports count, errors, and p50/p95/p99 per operation and query class; high percentiles are weak evidence for groups with few observations.
 
 This is a **diagnostic serial direct-client measurement**. It does not establish sustainable throughput or a store ranking: offered rate, concurrency, independent repetitions, resource sampling, and effective container limits are not yet controlled or collected by this runner. Rare predicates can still scan many CouchDB documents with the current index. The full [benchmark procedure](benchmark-tests.de.md) remains the next stage.
+
+## Controlled read-only load
+
+The [read-only load runner](../benchmarks/documents/load.py) derives P1–P4 from the mixed serial trace and recalculates their expected results against the unchanged initial fixture. This variant does not execute P5–P7. The derived request set and its checksum are saved as `read-requests.jsonl`. Its mix is 450 point reads, 300 filters, 150 pages, and 50 summaries per 950 requests; longer runs repeat that sequence.
+
+Run one store at a time. The runner resets its dedicated benchmark table or database before **each repetition**. These short settings demonstrate the command; regular measurement series need longer phases and independent runs under the [measurement procedure](benchmark-tests.de.md).
+
+```bash
+docker compose -f infrastructure/documents.compose.yaml up -d --wait postgres
+.venv/bin/python benchmarks/documents/load.py --store postgres --rate 20 --concurrency 4 \
+  --warmup-seconds 2 --measure-seconds 5 --repetitions 2
+docker compose -f infrastructure/documents.compose.yaml down
+
+docker compose -f infrastructure/documents.compose.yaml up -d --wait couchdb
+.venv/bin/python benchmarks/documents/load.py --store couchdb --rate 20 --concurrency 4 \
+  --warmup-seconds 2 --measure-seconds 5 --repetitions 2
+docker compose -f infrastructure/documents.compose.yaml down
+```
+
+The scheduler offers requests at `--rate` per second independently of response time. `--concurrency` caps occupied worker slots; a full pool records an offered request as `dropped`. Each PostgreSQL worker has its own connection; CouchDB uses an HTTP request per operation. Responses are fully decoded and then checked outside the measured service time. Validation keeps a worker slot occupied and can therefore affect achieved throughput. Each started request records `elapsed_ns` for service time, `end_to_end_ns` from scheduled arrival, and `schedule_lag_ns` for runner delay. The summary separates offered, started, completed, errored, and dropped requests, plus completions within the measurement window. Late completions are excluded from that throughput figure. `within_provisional_targets` checks end-to-end p95 (default at most 100 ms) and `(errors + dropped) / offered` (default at most 0.1%); both limits are configurable. A `passed` run status means **logical correctness**, not that the offered load met the targets.
+
+Outputs are under `results/documents/load-runs/<run_id>/`: `manifest.json`, `read-requests.jsonl`, and `repeat-XX/operations.jsonl` and `repeat-XX/summary.json` for each repetition. Use `--input` for another generator output and `--output` for a new destination. The existing [.gitignore](../.gitignore) excludes new `results/` runs by default. This is an initial controlled direct-read test. Resource time series, effective container-limit checks, longer randomized runs, and a correct concurrent-write model are still needed for a reliable store comparison.

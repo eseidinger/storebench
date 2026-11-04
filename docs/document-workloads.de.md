@@ -113,3 +113,25 @@ docker compose -f infrastructure/documents.compose.yaml down
 Der Runner legt unter `results/documents/runs/<run_id>/` `operations.jsonl`, `summary.json` und `manifest.json` ab. `--input` wählt die generierten Eingaben, `--output` ein neues Zielverzeichnis und `--warmup-requests` die Anzahl der Leseanfragen zum Aufwärmen. Pro Operation misst `elapsed_ns` mit einer monotonen Uhr die direkte Clientoperation bis zur vollständig dekodierten Store-Antwort. Die Prüfung der Sollwerte liegt danach außerhalb dieses Zeitfensters und steht als `validation_ns` im Rohdatensatz. Bei Schreibvorgängen umfasst sie einen zusätzlichen Punktlesevorgang; dieser kann den Zustand für die nächste Anfrage beeinflussen. Ergebnisgrößen sind **logisch serialisierte Bytes**, keine gemessenen Netzwerkbytes. Die Zusammenfassung enthält Anzahl, Fehler sowie p50/p95/p99 je Operation und Anfrageklasse; bei kleinen Fallzahlen sind hohe Perzentile wenig aussagekräftig.
 
 Dies ist eine **diagnostische serielle Direktmessung**. Sie liefert noch keine belastbaren Durchsatz- oder Store-Rangfolgen: angebotene Rate, Nebenläufigkeit, unabhängige Wiederholungen, Ressourcenmessung und wirksame Containerlimits werden vom Runner noch nicht gesteuert beziehungsweise erfasst. Seltene Filter können mit dem vorhandenen CouchDB-Index viele Dokumente prüfen. Die vollständige [Benchmark-Messmethodik](benchmark-tests.de.md) bleibt daher als nächster Ausbauschritt maßgeblich.
+
+## Kontrollierte Read-only-Last
+
+Der [Read-only-Last-Runner](../benchmarks/documents/load.py) leitet aus dem gemischten seriellen Trace die Anfragen P1–P4 ab und berechnet deren Erwartungswerte für den unveränderten Anfangsbestand neu. P5–P7 werden in dieser Lastvariante nicht ausgeführt. Dadurch sind parallele Lesezugriffe mit derselben fachlichen Referenz möglich. Das abgeleitete Requestset steht mit Prüfsumme als `read-requests.jsonl` im Laufverzeichnis. Sein tatsächlicher Mix ist 450 Punktabfragen, 300 Filter, 150 Seitenabfragen und 50 Übersichten pro 950 Requests; bei längeren Läufen wird diese Folge wiederholt.
+
+Ein Aufruf misst genau einen Store. Der andere Store bleibt gestoppt; der Runner setzt seine eigene Benchmark-Tabelle beziehungsweise -Datenbank vor **jeder Wiederholung** neu auf. Die folgenden Werte sind kurze Funktionsparameter. Für eine reguläre Messreihe sind gemäß [Messmethodik](benchmark-tests.de.md) längere Phasen und mehrere unabhängige Läufe erforderlich.
+
+```bash
+docker compose -f infrastructure/documents.compose.yaml up -d --wait postgres
+.venv/bin/python benchmarks/documents/load.py --store postgres --rate 20 --concurrency 4 \
+  --warmup-seconds 2 --measure-seconds 5 --repetitions 2
+docker compose -f infrastructure/documents.compose.yaml down
+
+docker compose -f infrastructure/documents.compose.yaml up -d --wait couchdb
+.venv/bin/python benchmarks/documents/load.py --store couchdb --rate 20 --concurrency 4 \
+  --warmup-seconds 2 --measure-seconds 5 --repetitions 2
+docker compose -f infrastructure/documents.compose.yaml down
+```
+
+Der Zeitplaner bietet Anfragen unabhängig von ihrer Bearbeitungsdauer mit `--rate` pro Sekunde an. `--concurrency` begrenzt die gleichzeitig belegten Worker-Slots; bei voller Belegung wird ein Angebot als `dropped` erfasst. Jeder Worker verwendet eine eigene PostgreSQL-Verbindung; der CouchDB-Pfad verwendet pro Operation einen HTTP-Request. Die Antwort wird vollständig dekodiert und anschließend außerhalb der gemessenen Servicezeit auf Korrektheit geprüft. Diese Prüfung belegt bis zu ihrem Abschluss weiterhin einen Worker-Slot und beeinflusst deshalb den erreichbaren Durchsatz. Ein Request erhält `elapsed_ns` für die Servicezeit, `end_to_end_ns` ab geplantem Ankunftszeitpunkt und `schedule_lag_ns` für den Verzug des Runners. Die Zusammenfassung nennt angebotene, gestartete, abgeschlossene, fehlerhafte und verworfene Anfragen sowie die bis zum Ende des Messfensters abgeschlossenen Anfragen. Späte Abschlüsse zählen nicht zu dessen Durchsatz. `within_provisional_targets` prüft das p95 der Ende-zu-Ende-Zeit (Standard: höchstens 100 ms) und den Anteil `(Fehler + verworfen) / angeboten` (Standard: höchstens 0,1 %); beide Grenzen sind per CLI änderbar. Der Laufstatus `passed` bezeichnet nur fehlerfreie **fachliche** Antworten, nicht ein erreichtes Lastziel.
+
+Ausgaben liegen unter `results/documents/load-runs/<run_id>/`: `manifest.json`, `read-requests.jsonl` und je Wiederholung `repeat-XX/operations.jsonl` sowie `repeat-XX/summary.json`. `--input` wählt ein anderes Generatorergebnis, `--output` ein neues Zielverzeichnis. Das bestehende [.gitignore](../.gitignore) schließt neue `results/`-Läufe standardmäßig aus der Versionsverwaltung aus. Die Laststufe ist ein erster kontrollierter direkter Lesetest. Für einen belastbaren Store-Vergleich fehlen weiterhin Ressourcenzeitreihen, Prüfung wirksamer Containerlimits, längere und randomisierte Messreihen sowie ein korrektes Parallelmodell für Schreibvorgänge.

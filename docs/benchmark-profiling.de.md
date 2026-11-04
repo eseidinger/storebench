@@ -1,6 +1,6 @@
 # Profiling-Plan für die Benchmark-Tests
 
-Dieses Dokument ergänzt die [geplanten Benchmark-Tests](benchmark-tests.de.md). Es beschreibt ausschließlich lokales Profiling mit Docker Compose: Container-Ressourcen, Client-Zeiten und gezielte Store-Diagnose. Ein Prometheus-/Grafana-Stack ist dafür nicht erforderlich. Benchmark-Runner, Ressourcensampler und Artefaktablage sind noch nicht implementiert; es liegen keine Profile oder Messergebnisse vor.
+Dieses Dokument ergänzt die [geplanten Benchmark-Tests](benchmark-tests.de.md). Es beschreibt ausschließlich lokales Profiling mit Docker Compose: Container-Ressourcen, Client-Zeiten und gezielte Store-Diagnose. Ein Prometheus-/Grafana-Stack ist dafür nicht erforderlich. Für Dokumente existiert inzwischen eine [serielle diagnostische Direktmessung](document-workloads.de.md#erste-serielle-direktmessung) mit lokalen Artefakten. Ressourcensampler, Laststeuerung und vollständiger Benchmark-Bericht sind noch nicht implementiert; belastbare Vergleichsergebnisse liegen nicht vor.
 
 ## 1. Messarchitektur und Vergleichsgrenze
 
@@ -67,7 +67,7 @@ Der Runner schreibt pro Operation einen Histogrammwert und aggregiert nach Test-
 | Diagnose | Store-API-Snapshots vor/nach dem Lauf; zusätzliche Client-/Store-Profile nur in P2 |
 | Ablage | Ein lokales Verzeichnis pro `run_id`, mit Prüfsummen und Vollständigkeitsprüfung nach Laufende |
 
-Der Sampler und Reporter sind geplante StoreBench-Bausteine. Die vorhandenen Compose-Umgebungen und `seed`/`run`/`verify`-Skripte dienen derzeit der Funktionsprüfung; ihre Laufzeiten sind keine Benchmark-Ergebnisse. Logs können als begrenzte lokale Dateien abgelegt werden. Optionale Traces sind nur sinnvoll, wenn ihre Erfassung und Kosten für den jeweiligen P1-/P2-Lauf dokumentiert werden. Weder Collector-Dienste noch Dashboards gehören zum erforderlichen Aufbau.
+Der Sampler und Reporter sind geplante StoreBench-Bausteine. Die vorhandenen Compose-Umgebungen und `seed`/`run`/`verify`-Skripte dienen weiterhin der Funktionsprüfung; ihre Laufzeiten sind keine Benchmark-Ergebnisse. Der neue direkte Dokument-Runner erfasst einzelne Clientzeiten und lokale Rohdaten, aber noch keine kontrollierte Last oder Ressourcenzeitreihen. Logs können als begrenzte lokale Dateien abgelegt werden. Optionale Traces sind nur sinnvoll, wenn ihre Erfassung und Kosten für den jeweiligen P1-/P2-Lauf dokumentiert werden. Weder Collector-Dienste noch Dashboards gehören zum erforderlichen Aufbau.
 
 Ein Diagnose-Snapshot liest lokal verfügbare Store-Statistiken und Konfiguration vor/nach dem Lauf. Er speichert Antwort, Erfassungszeit und Fehler unter `store-snapshots/`. Benötigt eine Statistik erhöhte Store-Rechte, werden diese nur für den lokalen Diagnosezugriff verwendet und nicht im Manifest oder in Artefakten gespeichert. Fehlt die Berechtigung, bleibt die Quelle mit Grund `unavailable`. Ein Snapshot ersetzt kein Backup.
 

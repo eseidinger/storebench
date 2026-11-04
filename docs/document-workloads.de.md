@@ -95,4 +95,21 @@ python3 -m venv .venv
 .venv/bin/python benchmarks/documents/conformance.py all --store both
 ```
 
-`--store postgres` oder `--store couchdb` wählt einen Store; `--input` wählt ein anderes Verzeichnis mit Manifest und JSONL-Dateien. `seed` lädt nur die Anfangsdokumente, `replay` spielt nur den Trace ab und `all` führt beides aus. Vor jeder Wiederholung von `replay` ist erneut `seed` nötig, da P5–P7 den Bestand ändern. Die CouchDB-Filter verwenden eine serverseitige Sortierung mit einem ausdrücklich benannten Index auf Kategorie und ID; dieser Index kann bei seltenen Attributfiltern viele Dokumente prüfen. Seine Selektivität und alternative Indizes sind Gegenstand der späteren Performancearbeit. Dieser Runner prüft **Korrektheit**, er misst keine Latenzen oder Durchsatzwerte. Nebenläufigkeitsprüfungen und ein Mess-Runner fehlen noch.
+`--store postgres` oder `--store couchdb` wählt einen Store; `--input` wählt ein anderes Verzeichnis mit Manifest und JSONL-Dateien. `seed` lädt nur die Anfangsdokumente, `replay` spielt nur den Trace ab und `all` führt beides aus. Vor jeder Wiederholung von `replay` ist erneut `seed` nötig, da P5–P7 den Bestand ändern. Die CouchDB-Filter verwenden eine serverseitige Sortierung mit einem ausdrücklich benannten Index auf Kategorie und ID; dieser Index kann bei seltenen Attributfiltern viele Dokumente prüfen. Seine Selektivität und alternative Indizes sind Gegenstand der späteren Performancearbeit. Dieser Runner prüft **Korrektheit**; die separate diagnostische Direktmessung steht im folgenden Abschnitt.
+
+## Erste serielle Direktmessung
+
+Der [direkte Python-Messrunner](../benchmarks/documents/measure.py) führt jeweils **einen Store** aus. Er lädt das Fixture neu, wärmt standardmäßig mit 100 Leseanfragen auf und spielt danach den vollständigen gemischten Trace seriell ab. Für jeden Store wird ein eigener Lauf gestartet; der andere Store sollte dabei gestoppt sein:
+
+```bash
+docker compose -f infrastructure/documents.compose.yaml up -d --wait postgres
+.venv/bin/python benchmarks/documents/measure.py --store postgres
+docker compose -f infrastructure/documents.compose.yaml down
+docker compose -f infrastructure/documents.compose.yaml up -d --wait couchdb
+.venv/bin/python benchmarks/documents/measure.py --store couchdb
+docker compose -f infrastructure/documents.compose.yaml down
+```
+
+Der Runner legt unter `results/documents/runs/<run_id>/` `operations.jsonl`, `summary.json` und `manifest.json` ab. `--input` wählt die generierten Eingaben, `--output` ein neues Zielverzeichnis und `--warmup-requests` die Anzahl der Leseanfragen zum Aufwärmen. Pro Operation misst `elapsed_ns` mit einer monotonen Uhr die direkte Clientoperation bis zur vollständig dekodierten Store-Antwort. Die Prüfung der Sollwerte liegt danach außerhalb dieses Zeitfensters und steht als `validation_ns` im Rohdatensatz. Bei Schreibvorgängen umfasst sie einen zusätzlichen Punktlesevorgang; dieser kann den Zustand für die nächste Anfrage beeinflussen. Ergebnisgrößen sind **logisch serialisierte Bytes**, keine gemessenen Netzwerkbytes. Die Zusammenfassung enthält Anzahl, Fehler sowie p50/p95/p99 je Operation und Anfrageklasse; bei kleinen Fallzahlen sind hohe Perzentile wenig aussagekräftig.
+
+Dies ist eine **diagnostische serielle Direktmessung**. Sie liefert noch keine belastbaren Durchsatz- oder Store-Rangfolgen: angebotene Rate, Nebenläufigkeit, unabhängige Wiederholungen, Ressourcenmessung und wirksame Containerlimits werden vom Runner noch nicht gesteuert beziehungsweise erfasst. Seltene Filter können mit dem vorhandenen CouchDB-Index viele Dokumente prüfen. Die vollständige [Benchmark-Messmethodik](benchmark-tests.de.md) bleibt daher als nächster Ausbauschritt maßgeblich.

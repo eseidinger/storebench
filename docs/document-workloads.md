@@ -95,4 +95,21 @@ python3 -m venv .venv
 .venv/bin/python benchmarks/documents/conformance.py all --store both
 ```
 
-Use `--store postgres` or `--store couchdb` to select one store and `--input` for another generated directory. `seed` only loads the fixture, `replay` only executes requests, and `all` does both. Reseed before repeating a replay because P5–P7 change state. CouchDB filters use server-side ordering with an explicitly named category/ID index; rare attribute predicates can still examine many documents. Index selectivity and alternative indexes belong to later performance work. This runner checks **correctness** and produces no latency or throughput measurements. Concurrent validation and a measurement runner remain to be implemented.
+Use `--store postgres` or `--store couchdb` to select one store and `--input` for another generated directory. `seed` only loads the fixture, `replay` only executes requests, and `all` does both. Reseed before repeating a replay because P5–P7 change state. CouchDB filters use server-side ordering with an explicitly named category/ID index; rare attribute predicates can still examine many documents. Index selectivity and alternative indexes belong to later performance work. This runner checks **correctness**; the separate diagnostic direct-client measurement is described next.
+
+## First serial direct-client measurement
+
+The [Python measurement runner](../benchmarks/documents/measure.py) runs **one store at a time**. It reloads the fixture, warms up with 100 read requests by default, then replays the full mixed trace serially. Start a separate run for each store while the other store is stopped:
+
+```bash
+docker compose -f infrastructure/documents.compose.yaml up -d --wait postgres
+.venv/bin/python benchmarks/documents/measure.py --store postgres
+docker compose -f infrastructure/documents.compose.yaml down
+docker compose -f infrastructure/documents.compose.yaml up -d --wait couchdb
+.venv/bin/python benchmarks/documents/measure.py --store couchdb
+docker compose -f infrastructure/documents.compose.yaml down
+```
+
+The runner writes `operations.jsonl`, `summary.json`, and `manifest.json` under `results/documents/runs/<run_id>/`. Use `--input` for a different generated fixture, `--output` for a new output directory, and `--warmup-requests` to set the number of read warmup operations. A monotonic clock measures each direct client call through full response decoding as `elapsed_ns`. Reference validation happens afterward and appears as `validation_ns`. For writes it includes an extra point read, which can affect the state seen by the next request. Result sizes are **logical serialized bytes**, not measured network bytes. The summary reports count, errors, and p50/p95/p99 per operation and query class; high percentiles are weak evidence for groups with few observations.
+
+This is a **diagnostic serial direct-client measurement**. It does not establish sustainable throughput or a store ranking: offered rate, concurrency, independent repetitions, resource sampling, and effective container limits are not yet controlled or collected by this runner. Rare predicates can still scan many CouchDB documents with the current index. The full [benchmark procedure](benchmark-tests.de.md) remains the next stage.

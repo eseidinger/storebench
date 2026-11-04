@@ -100,7 +100,7 @@ class PostgreSQL:
         with self.connection.cursor() as cursor:
             cursor.execute(f"SELECT doc->>'category', count(*), sum((doc->>'price_cents')::bigint) "
                            f"FROM {TABLE} GROUP BY 1 ORDER BY 1")
-            return {category: {"count": count, "price_cents_sum": total}
+            return {category: {"count": int(count), "price_cents_sum": int(total)}
                     for category, count, total in cursor.fetchall()}
 
     def create(self, document):
@@ -228,39 +228,55 @@ class CouchDB:
         self._change(request, "stock", request["delta"])
 
 
+def execute(store, request):
+    """Execute one logical operation; returned reads are fully decoded by the client."""
+    code = request["operation"]
+    if code == "P1":
+        return store.point(request["id"])
+    if code in ("P2", "P3"):
+        return store.filter(request)
+    if code == "P4":
+        return store.totals()
+    if code == "P5":
+        store.create(request["document"])
+        return None
+    if code == "P6":
+        store.attribute_update(request)
+        return None
+    if code == "P7":
+        store.stock_update(request)
+        return None
+    raise RuntimeError(f"Unsupported operation {code}")
+
+
+def verify(store, request, result):
+    """Check the serial oracle after the operation; writes require a read-back."""
+    code = request["operation"]
+    if code == "P1":
+        require((sha256(canonical(result)) if result else None) == request["expected_sha256"],
+                "Point read mismatch")
+    elif code in ("P2", "P3"):
+        require([p["id"] for p in result] == request["expected_ids"], "Filtered IDs/order mismatch")
+        require(sha256(canonical(result)) == request["expected_result_sha256"],
+                "Filtered document mismatch")
+    elif code == "P4":
+        require(result == request["expected_totals"], "Category totals mismatch")
+    elif code in ("P5", "P6", "P7"):
+        product_id = request["document"]["id"] if code == "P5" else request["id"]
+        require(sha256(canonical(store.point(product_id))) == request["expected_sha256"],
+                f"{code} document mismatch")
+    else:
+        raise RuntimeError(f"Unsupported operation {code}")
+
+
 def replay(store, requests):
     counts = {}
     for request in requests:
         code = request["operation"]
-        label = f"{store.name} sequence {request['sequence']} {code}"
         try:
-            if code == "P1":
-                product = store.point(request["id"])
-                require((sha256(canonical(product)) if product else None) == request["expected_sha256"],
-                        "Point read mismatch")
-            elif code in ("P2", "P3"):
-                products = store.filter(request)
-                require([p["id"] for p in products] == request["expected_ids"], "Filtered IDs/order mismatch")
-                require(sha256(canonical(products)) == request["expected_result_sha256"],
-                        "Filtered document mismatch")
-            elif code == "P4":
-                require(store.totals() == request["expected_totals"], "Category totals mismatch")
-            elif code == "P5":
-                store.create(request["document"])
-                require(sha256(canonical(store.point(request["document"]["id"]))) == request["expected_sha256"],
-                        "Created document mismatch")
-            elif code == "P6":
-                store.attribute_update(request)
-                require(sha256(canonical(store.point(request["id"]))) == request["expected_sha256"],
-                        "Attribute update mismatch")
-            elif code == "P7":
-                store.stock_update(request)
-                require(sha256(canonical(store.point(request["id"]))) == request["expected_sha256"],
-                        "Stock update mismatch")
-            else:
-                raise RuntimeError(f"Unsupported operation {code}")
+            verify(store, request, execute(store, request))
         except Exception as error:
-            raise RuntimeError(f"{label}: {error}") from error
+            raise RuntimeError(f"{store.name} sequence {request['sequence']} {code}: {error}") from error
         counts[code] = counts.get(code, 0) + 1
     return counts
 

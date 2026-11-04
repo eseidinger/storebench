@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "workload": "write",
+  "name": "contested-stock-write-quick-v1",
+  "input_profile": "storefront-quick-v1",
+  "seed": 20261105,
+  "request_count": 100,
+  "operation_percent": {
+    "P5": 0,
+    "P6": 10,
+    "P7": 90
+  },
+  "hot_key_count": 1,
+  "duplicate_create_percent": 0,
+  "negative_stock_percent": 60,
+  "rate_per_second": 20,
+  "concurrency": 4,
+  "warmup_seconds": 0.5,
+  "measure_seconds": 5,
+  "repetitions": 1,
+  "max_attempts": 3,
+  "retry_backoff_ms": 1,
+  "latency_target_ms": 100,
+  "max_failure_rate": 0.05,
+  "concurrencies": [
+    4
+  ],
+  "rates_per_second": [
+    20
+  ],
+  "sample_interval_seconds": 1,
+  "max_sample_interval_factor": 3,
+  "sampler_overhead": {
+    "pairs": 0
+  }
+}

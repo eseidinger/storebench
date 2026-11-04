@@ -63,10 +63,12 @@ def validate_plan(plan):
     if not isinstance(failure, (int, float)) or not math.isfinite(failure) or not 0 <= failure <= 1:
         raise ValueError("max_failure_rate must be between 0 and 1")
     overhead = plan.get("sampler_overhead")
-    if not isinstance(overhead, dict) or not isinstance(overhead.get("pairs"), int) or overhead["pairs"] < 1 or \
-       overhead.get("concurrency") not in plan["concurrencies"] or \
-       overhead.get("rate_per_second") not in plan["rates_per_second"]:
-        raise ValueError("sampler_overhead requires positive pairs and a matrix point")
+    if not isinstance(overhead, dict) or not isinstance(overhead.get("pairs"), int) or \
+       isinstance(overhead["pairs"], bool) or overhead["pairs"] < 0:
+        raise ValueError("sampler_overhead pairs must be nonnegative")
+    if overhead["pairs"] and (overhead.get("concurrency") not in plan["concurrencies"] or
+                              overhead.get("rate_per_second") not in plan["rates_per_second"]):
+        raise ValueError("sampler_overhead requires a matrix point when pairs are enabled")
     if workload == "write":
         required = math.ceil(max(plan["rates_per_second"]) *
                              max(plan["warmup_seconds"], plan["measure_seconds"]))
@@ -300,13 +302,16 @@ def markdown_report(report):
         lines.append(f"| {row['store']} | {row['concurrency']} | {row['rate_per_second']} | "
                      f"{row['setup_seconds_median']} | {row['preparation_seconds_median']} | "
                      f"{row['index_file_mib_median']} |")
-    lines += ["", "## Sampler overhead", "",
-              "Ratios compare paired runs at the same offered rate; 1.0 means no measured change.", "",
-              "| Store | Complete pairs | p95 on/off median | Throughput on/off median |",
-              "| --- | ---: | ---: | ---: |"]
-    for row in report["summary"]["sampler_overhead"]:
-        lines.append(f"| {row['store']} | {row['completed_pairs']} | {row['p95_ratio_median']} | "
-                     f"{row['throughput_ratio_median']} |")
+    lines += ["", "## Sampler overhead", ""]
+    if report["summary"]["overhead_pairs"]:
+        lines += ["Ratios compare paired runs at the same offered rate; 1.0 means no measured change.", "",
+                  "| Store | Complete pairs | p95 on/off median | Throughput on/off median |",
+                  "| --- | ---: | ---: | ---: |"]
+        for row in report["summary"]["sampler_overhead"]:
+            lines.append(f"| {row['store']} | {row['completed_pairs']} | {row['p95_ratio_median']} | "
+                         f"{row['throughput_ratio_median']} |")
+    else:
+        lines.append("Skipped by this profile.")
     lines += ["", "See report.json and each run's orchestration.json, load/manifest.json and operations.jsonl."]
     return "\n".join(lines) + "\n"
 

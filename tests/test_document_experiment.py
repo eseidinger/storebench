@@ -16,6 +16,19 @@ def plan():
 
 
 class ExperimentTest(unittest.TestCase):
+    def test_quick_profiles_schedule_one_run_per_store(self):
+        root = Path(__file__).resolve().parents[1]
+        for name in ("read-only-quick-v1", "catalog-maintenance-write-quick-v1",
+                     "contested-stock-write-quick-v1"):
+            with self.subTest(profile=name):
+                path = root / "workloads/documents/profiles" / f"{name}.json"
+                quick = validate_plan(json.loads(path.read_text()))
+                self.assertEqual(quick["input_profile"], "storefront-quick-v1")
+                self.assertEqual(quick["sampler_overhead"], {"pairs": 0})
+                self.assertEqual(len(schedule(quick)), 2)
+                self.assertEqual({step["store"] for step in schedule(quick)},
+                                 {"postgres", "couchdb"})
+
     def test_write_profiles_cover_highest_rate_and_schedule_both_stores(self):
         root = Path(__file__).resolve().parents[1]
         for name in ("catalog-maintenance-write-v1", "contested-stock-write-v1"):

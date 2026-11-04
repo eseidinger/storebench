@@ -34,12 +34,15 @@ class DocumentOrchestratorTest(unittest.TestCase):
     def test_phase_and_rates_do_not_bridge_repetitions(self):
         repetitions = [
             {"repetition": 1, "phase_intervals": {
+                "prepare_started_utc": "2026-11-04T09:59:58+00:00",
+                "prepare_finished_utc": "2026-11-04T09:59:59+00:00",
                 "measure_started_utc": "2026-11-04T10:00:00+00:00",
                 "measure_finished_utc": "2026-11-04T10:00:02+00:00"}},
             {"repetition": 2, "phase_intervals": {
                 "measure_started_utc": "2026-11-04T10:00:10+00:00",
                 "measure_finished_utc": "2026-11-04T10:00:12+00:00"}},
         ]
+        self.assertEqual(phase_for("2026-11-04T09:59:58+00:00", repetitions), (1, "prepare"))
         self.assertEqual(phase_for("2026-11-04T10:00:01+00:00", repetitions), (1, "measure"))
         self.assertEqual(phase_for("2026-11-04T10:00:05+00:00", repetitions), (None, "outside"))
         rows = []

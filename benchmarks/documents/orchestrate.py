@@ -203,7 +203,7 @@ def phase_for(timestamp, repetitions):
     sample = datetime.fromisoformat(timestamp)
     for repetition in repetitions:
         phases = repetition["phase_intervals"]
-        for phase in ("setup", "warmup", "measure"):
+        for phase in ("setup", "prepare", "warmup", "measure"):
             start = phases.get(f"{phase}_started_utc")
             finish = phases.get(f"{phase}_finished_utc")
             if start and finish and datetime.fromisoformat(start) <= sample <= datetime.fromisoformat(finish):

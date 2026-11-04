@@ -78,6 +78,19 @@ class PostgreSQL:
                 cursor.execute(f"CREATE INDEX benchmark_products_attributes ON {TABLE} USING gin ((doc->'attributes'))")
         return len(documents)
 
+    def storage_size(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT pg_relation_size(%s::regclass), pg_total_relation_size(%s::regclass)",
+                           (TABLE, TABLE))
+            table_bytes, total_bytes = cursor.fetchone()
+            cursor.execute("SELECT c.relname, pg_relation_size(i.indexrelid) "
+                           "FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
+                           "WHERE i.indrelid = %s::regclass ORDER BY c.relname", (TABLE,))
+            indexes = [{"name": name, "file_bytes": size} for name, size in cursor.fetchall()]
+        return {"table_bytes": table_bytes, "total_relation_bytes": total_bytes,
+                "index_file_bytes": sum(index["file_bytes"] for index in indexes),
+                "indexes": indexes}
+
     def point(self, product_id):
         with self.connection.cursor() as cursor:
             cursor.execute(f"SELECT doc FROM {TABLE} WHERE id = %s", (product_id,))
@@ -174,11 +187,29 @@ class CouchDB:
         self.request("POST", f"/{DATABASE}/_index", {
             "index": {"fields": ["category", "id"]}, "ddoc": "benchmark_category_id",
             "name": "category_id", "type": "json"})
+        for attribute in ("color", "edition"):
+            self.request("POST", f"/{DATABASE}/_index", {
+                "index": {"fields": ["category", f"attributes.{attribute}", "id"]},
+                "ddoc": f"benchmark_category_{attribute}_id",
+                "name": f"category_{attribute}_id", "type": "json"})
         self.request("PUT", f"/{DATABASE}/_design/catalog", {
             "_id": "_design/catalog", "views": {"category_totals": {
                 "map": "function(doc) { if (doc.category && typeof doc.price_cents === 'number') emit(doc.category, doc.price_cents); }",
                 "reduce": "_stats"}}})
         return len(documents)
+
+    def storage_size(self):
+        database = self.request("GET", f"/{DATABASE}")
+        indexes = []
+        for ddoc in ("benchmark_category_id", "benchmark_category_color_id",
+                     "benchmark_category_edition_id", "catalog"):
+            info = self.request("GET", f"/{DATABASE}/_design/{ddoc}/_info")
+            sizes = (info.get("view_index") or {}).get("sizes") or {}
+            indexes.append({"name": ddoc, "sizes": sizes,
+                            "file_bytes": sizes.get("file", sizes.get("disk"))})
+        return {"database_sizes": database.get("sizes"),
+                "index_file_bytes": sum(index["file_bytes"] or 0 for index in indexes),
+                "indexes": indexes}
 
     @staticmethod
     def logical(document):
@@ -189,14 +220,37 @@ class CouchDB:
     def point(self, product_id):
         return self.logical(self.request("GET", self.document_path(product_id), missing_ok=True))
 
-    def filter(self, request):
+    @staticmethod
+    def filter_index(request):
+        attributes = request["attributes"]
+        if len(attributes) == 1:
+            attribute = next(iter(attributes))
+            if attribute in ("color", "edition"):
+                return f"benchmark_category_{attribute}_id", f"category_{attribute}_id", attribute
+        return "benchmark_category_id", "category_id", None
+
+    @staticmethod
+    def filter_query(request):
         selector = {"category": request["category"],
                     "id": {"$gt": request["after"][1]} if request.get("after") else {"$gte": ""}}
         selector.update({f"attributes.{key}": value for key, value in request["attributes"].items()})
-        result = self.request("POST", f"/{DATABASE}/_find", {
-            "selector": selector, "sort": [{"category": "asc"}, {"id": "asc"}],
-            "limit": request["limit"], "use_index": ["benchmark_category_id", "category_id"],
-            "allow_fallback": False})
+        ddoc, name, attribute = CouchDB.filter_index(request)
+        sort_fields = ["category", f"attributes.{attribute}", "id"] if attribute else ["category", "id"]
+        return {"selector": selector, "sort": [{field: "asc"} for field in sort_fields],
+            "limit": request["limit"], "use_index": [ddoc, name],
+            "allow_fallback": False}
+
+    def explain_filter(self, request):
+        return self.request("POST", f"/{DATABASE}/_explain", self.filter_query(request))
+
+    def filter_execution_stats(self, request):
+        query = {**self.filter_query(request), "execution_stats": True}
+        result = self.request("POST", f"/{DATABASE}/_find", query)
+        return ([self.logical(doc) for doc in result["docs"]],
+                result.get("execution_stats"), result.get("warning"))
+
+    def filter(self, request):
+        result = self.request("POST", f"/{DATABASE}/_find", self.filter_query(request))
         return [self.logical(doc) for doc in result["docs"]]
 
     def totals(self):

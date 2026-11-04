@@ -74,6 +74,40 @@ def write_jsonl(path, rows):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def prepare_read_paths(store, requests):
+    """Build lazy indexes/views and verify one request per read group before timing."""
+    representatives = {}
+    for request in requests:
+        representatives.setdefault(group_name(request), request)
+    selected = sorted(representatives.values(),
+                      key=lambda request: (request["operation"] != "P4", request["operation"],
+                                           group_name(request)))
+    groups = []
+    diagnostics = []
+    started = time.perf_counter_ns()
+    for request in selected:
+        group = group_name(request)
+        operation_started = time.perf_counter_ns()
+        result = execute(store, request)
+        verify(store, request, result)
+        groups.append({"group": group, "sequence": request["sequence"],
+                       "elapsed_ns": time.perf_counter_ns() - operation_started})
+        if isinstance(store, CouchDB) and request["operation"] in ("P2", "P3"):
+            explain = store.explain_filter(request)
+            index = explain.get("index") or {}
+            expected_ddoc, expected_name, _ = store.filter_index(request)
+            if index.get("name") != expected_name or \
+               index.get("ddoc") != f"_design/{expected_ddoc}":
+                raise RuntimeError(f"{group}: unexpected CouchDB index {index}")
+            checked_result, stats, warning = store.filter_execution_stats(request)
+            verify(store, request, checked_result)
+            diagnostics.append({"group": group, "sequence": request["sequence"],
+                                "selected_index": index, "covering": explain.get("covering"),
+                                "execution_stats": stats, "warning": warning,
+                                "explain": explain})
+    return {"elapsed_ns": time.perf_counter_ns() - started, "groups": groups}, diagnostics
+
+
 class Recorder:
     def __init__(self, stream=None):
         self.stream = stream
@@ -268,6 +302,14 @@ def run(args):
                 admin.seed(documents)
                 setup_ns = time.perf_counter_ns() - setup_started
                 phases["setup_finished_utc"] = utc_now()
+                phases["prepare_started_utc"] = utc_now()
+                preparation, query_diagnostics = prepare_read_paths(admin, requests)
+                preparation["storage"] = admin.storage_size()
+                phases["prepare_finished_utc"] = utc_now()
+                if query_diagnostics:
+                    plans_path = repetition_dir / "query-plans.json"
+                    write_json(plans_path, query_diagnostics)
+                    preparation["query_plans_sha256"] = hashlib.sha256(plans_path.read_bytes()).hexdigest()
             finally:
                 admin.close()
             pool = ClientPool(factory, args.concurrency)
@@ -284,7 +326,8 @@ def run(args):
                     phases["measure_finished_utc"] = utc_now()
             finally:
                 pool.close()
-            summary = {"repetition": number, "setup_ns": setup_ns, "warmup": warmup,
+            summary = {"repetition": number, "setup_ns": setup_ns, "preparation": preparation,
+                       "warmup": warmup,
                        "measure": measured, "phase_intervals": phases,
                        "status": "passed" if not measured["errors"] else "failed"}
             summary["within_provisional_targets"] = (

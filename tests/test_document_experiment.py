@@ -1,7 +1,7 @@
 """Check experiment ordering, gates and per-run aggregation without Docker."""
 import unittest
 
-from benchmarks.documents.experiment import schedule, summarize, validate_plan
+from benchmarks.documents.experiment import markdown_report, schedule, summarize, validate_plan
 
 
 def plan():
@@ -29,6 +29,9 @@ class ExperimentTest(unittest.TestCase):
         results = []
         for step in schedule(plan()):
             result = {**step, "status": "passed", "qualifies": True,
+                      "setup_ns": 2_000_000_000,
+                      "preparation": {"elapsed_ns": 1_000_000_000,
+                                      "storage": {"index_file_bytes": 1_048_576}},
                       "measure": {"completed_within_window_per_second": step["rate_per_second"],
                                   "end_to_end_p95_ns": 10_000_000}}
             if step["kind"] == "matrix" and step["store"] == "postgres" and \
@@ -42,6 +45,11 @@ class ExperimentTest(unittest.TestCase):
         self.assertEqual(couchdb["highest_tested_qualifying_rate"], 20)
         self.assertTrue(couchdb["highest_configured_rate_qualifies"])
         self.assertEqual(report["sampler_overhead"][0]["p95_ratio_median"], 1)
+        self.assertEqual(report["matrix"][0]["index_file_mib_median"], 1)
+        self.assertEqual(report["matrix"][0]["setup_seconds_median"], 2)
+        rendered = markdown_report({"runs": results, "summary": report})
+        self.assertIn("## Setup and index footprint", rendered)
+        self.assertIn("| couchdb | 1 | 5 | 2.0 | 1.0 | 1.0 |", rendered)
 
     def test_invalid_plan(self):
         bad = plan()

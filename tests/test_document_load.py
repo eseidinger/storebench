@@ -61,6 +61,56 @@ class DocumentLoadTest(unittest.TestCase):
         self.assertEqual(summary["client_connections"], 1)
         self.assertEqual(summary["groups"]["P1:hot"]["errors"], 0)
 
+    def test_preparation_checks_each_read_group_before_timing(self):
+        from benchmarks.documents.load import derive_read_requests, prepare_read_paths
+        from benchmarks.documents.conformance import CouchDB
+
+        documents = [{"id": "a", "category": "gear", "price_cents": 100,
+                      "attributes": {"color": "blue"}}]
+        serial = [
+            {"sequence": 0, "operation": "P1", "id": "a", "access_class": "hot"},
+            {"sequence": 1, "operation": "P1", "id": "a", "access_class": "hot"},
+            {"sequence": 2, "operation": "P2", "category": "gear", "attributes": {"color": "blue"},
+             "limit": 10, "query": "broad"},
+            {"sequence": 3, "operation": "P2", "category": "gear", "attributes": {"color": "red"},
+             "limit": 10, "query": "empty"},
+            {"sequence": 4, "operation": "P3", "category": "gear", "attributes": {},
+             "limit": 10, "depth": 1, "after": None},
+            {"sequence": 5, "operation": "P4"},
+        ]
+        requests = derive_read_requests(documents, serial)
+
+        class FakeStore:
+            def __init__(self):
+                self.calls = []
+
+            def point(self, product_id):
+                self.calls.append("P1")
+                return documents[0]
+
+            def filter(self, request):
+                self.calls.append(request["operation"])
+                return [d for d in documents if d["category"] == request["category"] and
+                        all(d["attributes"].get(k) == v for k, v in request["attributes"].items())]
+
+            def totals(self):
+                self.calls.append("P4")
+                return {"gear": {"count": 1, "price_cents_sum": 100}}
+
+        store = FakeStore()
+        preparation, diagnostics = prepare_read_paths(store, requests)
+        self.assertEqual(store.calls, ["P4", "P1", "P2", "P2", "P3"])
+        self.assertEqual(len(preparation["groups"]), 5)
+        self.assertEqual(diagnostics, [])
+
+        query = CouchDB.filter_query(requests[2])
+        self.assertEqual(query["use_index"], ["benchmark_category_color_id", "category_color_id"])
+        self.assertEqual(query["sort"], [{"category": "asc"},
+                                         {"attributes.color": "asc"}, {"id": "asc"}])
+        self.assertFalse(query["allow_fallback"])
+        fallback = CouchDB.filter_query({**requests[2], "attributes": {"material": "wool"}})
+        self.assertEqual(fallback["use_index"], ["benchmark_category_id", "category_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -121,6 +121,8 @@ def run_step(step, plan, input_dir, output):
         if load.get("repetitions"):
             repetition = load["repetitions"][0]
             result["measure"] = repetition["measure"]
+            result["setup_ns"] = repetition.get("setup_ns")
+            result["preparation"] = repetition.get("preparation")
             result["correctness_status"] = repetition["status"]
             result["within_provisional_targets"] = repetition["within_provisional_targets"]
     intervals = result.get("actual_sample_intervals") or {}
@@ -148,6 +150,12 @@ def summarize(results, plan):
                       if run.get("measure")]
         p95 = [run["measure"]["end_to_end_p95_ns"] / 1e6 for run in runs
                if run.get("measure") and run["measure"]["end_to_end_p95_ns"] is not None]
+        setup = [run["setup_ns"] / 1e9 for run in runs if run.get("setup_ns") is not None]
+        preparation = [run["preparation"]["elapsed_ns"] / 1e9 for run in runs
+                       if run.get("preparation") and run["preparation"].get("elapsed_ns") is not None]
+        index_bytes = [run["preparation"]["storage"]["index_file_bytes"] for run in runs
+                       if run.get("preparation") and run["preparation"].get("storage") and
+                       run["preparation"]["storage"].get("index_file_bytes") is not None]
         matrix.append({"store": store, "concurrency": concurrency, "rate_per_second": rate,
                        "runs": len(runs), "expected_runs": plan["repetitions"],
                        "all_qualify": len(runs) == plan["repetitions"] and
@@ -155,7 +163,11 @@ def summarize(results, plan):
                        "completed_per_second_median": statistics.median(throughput) if throughput else None,
                        "completed_per_second_range": [min(throughput), max(throughput)] if throughput else None,
                        "run_p95_ms_median": statistics.median(p95) if p95 else None,
-                       "run_p95_ms_range": [min(p95), max(p95)] if p95 else None})
+                       "run_p95_ms_range": [min(p95), max(p95)] if p95 else None,
+                       "setup_seconds_median": statistics.median(setup) if setup else None,
+                       "preparation_seconds_median": statistics.median(preparation) if preparation else None,
+                       "index_file_mib_median": statistics.median(index_bytes) / (1024 ** 2)
+                       if index_bytes else None})
     for store in STORES:
         for concurrency in plan["concurrencies"]:
             qualified = [point for point in matrix if point["store"] == store and
@@ -220,6 +232,15 @@ def markdown_report(report):
                      f"{row['all_qualify']} | {row['runs']}/{row['expected_runs']} | "
                      f"{row['completed_per_second_median']} {row['completed_per_second_range']} | "
                      f"{row['run_p95_ms_median']} {row['run_p95_ms_range']} |")
+    lines += ["", "## Setup and index footprint", "",
+              "Setup includes fixture loading and index creation. Preparation includes lazy index builds,",
+              "view builds and correctness diagnostics. Index sizes are measured after preparation.", "",
+              "| Store | Workers | Offered/s | Setup s median | Prepare s median | Index MiB median |",
+              "| --- | ---: | ---: | ---: | ---: | ---: |"]
+    for row in report["summary"]["matrix"]:
+        lines.append(f"| {row['store']} | {row['concurrency']} | {row['rate_per_second']} | "
+                     f"{row['setup_seconds_median']} | {row['preparation_seconds_median']} | "
+                     f"{row['index_file_mib_median']} |")
     lines += ["", "## Sampler overhead", "",
               "Ratios compare paired runs at the same offered rate; 1.0 means no measured change.", "",
               "| Store | Complete pairs | p95 on/off median | Throughput on/off median |",

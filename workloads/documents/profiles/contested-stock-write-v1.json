@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "contested-stock-write-v1",
+  "input_profile": "storefront-v1",
+  "seed": 20261105,
+  "request_count": 500,
+  "operation_percent": {"P5": 0, "P6": 10, "P7": 90},
+  "hot_key_count": 1,
+  "duplicate_create_percent": 0,
+  "negative_stock_percent": 60,
+  "rate_per_second": 80,
+  "concurrency": 8,
+  "warmup_seconds": 1,
+  "measure_seconds": 5,
+  "repetitions": 2,
+  "max_attempts": 3,
+  "retry_backoff_ms": 1,
+  "latency_target_ms": 100,
+  "max_failure_rate": 0.05
+}

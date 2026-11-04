@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one document read load with host-side Docker and client resource samples."""
+"""Run one document read or write load with host-side resource samples."""
 import argparse
 import hashlib
 import http.client
@@ -21,6 +21,8 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "infrastructure/documents.compose.yaml"
 LOAD = ROOT / "benchmarks/documents/load.py"
+WRITE_LOAD = ROOT / "benchmarks/documents/write_load.py"
+DEFAULT_WRITE_PROFILE = ROOT / "workloads/documents/profiles/catalog-maintenance-write-v1.json"
 DOCKER_SOCKET = Path(os.environ.get("STOREBENCH_DOCKER_SOCKET", "/var/run/docker.sock"))
 
 
@@ -203,7 +205,7 @@ def phase_for(timestamp, repetitions):
     sample = datetime.fromisoformat(timestamp)
     for repetition in repetitions:
         phases = repetition["phase_intervals"]
-        for phase in ("setup", "prepare", "warmup", "measure"):
+        for phase in ("setup", "prepare", "warmup", "measure", "validate"):
             start = phases.get(f"{phase}_started_utc")
             finish = phases.get(f"{phase}_finished_utc")
             if start and finish and datetime.fromisoformat(start) <= sample <= datetime.fromisoformat(finish):
@@ -260,10 +262,29 @@ def sample_interval_summary(rows):
 
 
 def run(args):
+    defaults = json.loads(args.write_profile.read_text()) if args.workload == "write" else {
+        "rate_per_second": 20.0, "concurrency": 8, "warmup_seconds": 2.0,
+        "measure_seconds": 5.0, "repetitions": 1,
+        "latency_target_ms": 100.0, "max_failure_rate": 0.001}
+    settings = {"rate": args.rate if args.rate is not None else defaults["rate_per_second"],
+                "concurrency": args.concurrency if args.concurrency is not None else defaults["concurrency"],
+                "warmup_seconds": args.warmup_seconds if args.warmup_seconds is not None else defaults["warmup_seconds"],
+                "measure_seconds": args.measure_seconds if args.measure_seconds is not None else defaults["measure_seconds"],
+                "repetitions": args.repetitions if args.repetitions is not None else defaults["repetitions"],
+                "latency_target_ms": args.latency_target_ms if args.latency_target_ms is not None else defaults["latency_target_ms"],
+                "max_failure_rate": args.max_failure_rate if args.max_failure_rate is not None else defaults["max_failure_rate"]}
+    if not math.isfinite(settings["rate"]) or settings["rate"] <= 0 or settings["concurrency"] < 1 or \
+       not math.isfinite(settings["warmup_seconds"]) or settings["warmup_seconds"] < 0 or \
+       not math.isfinite(settings["measure_seconds"]) or settings["measure_seconds"] <= 0 or \
+       settings["repetitions"] < 1 or not math.isfinite(settings["latency_target_ms"]) or \
+       settings["latency_target_ms"] <= 0 or not math.isfinite(settings["max_failure_rate"]) or \
+       not 0 <= settings["max_failure_rate"] <= 1:
+        raise ValueError("Invalid load settings")
     output = args.output or (ROOT / "results/documents/orchestrated" /
-                              f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{args.store}-{uuid.uuid4().hex[:8]}")
+                              f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{args.workload}-{args.store}-{uuid.uuid4().hex[:8]}")
     output.mkdir(parents=True, exist_ok=False)
     manifest = {"kind": "host-orchestrated-document-load", "store": args.store,
+                "workload": args.workload,
                 "started_utc": utc_now(), "sampler_enabled": not args.no_sampler,
                 "sampler_interval_seconds": args.sample_interval if not args.no_sampler else None,
                 "host": host_snapshot(output), "status": "running"}
@@ -287,20 +308,21 @@ def run(args):
         manifest["compose_requested"] = {"cpu_cores": float(configured["cpus"]),
                                           "memory_bytes": int(configured["mem_limit"]),
                                           "image_ref": configured["image"]}
-        command = [sys.executable, str(LOAD), "--store", args.store, "--input", str(args.input),
-                   "--output", str(output / "load"), "--rate", str(args.rate),
-                   "--concurrency", str(args.concurrency),
-                   "--warmup-seconds", str(args.warmup_seconds),
-                   "--measure-seconds", str(args.measure_seconds),
-                   "--repetitions", str(args.repetitions),
-                   "--latency-target-ms", str(args.latency_target_ms),
-                   "--max-failure-rate", str(args.max_failure_rate)]
-        manifest["load_arguments"] = {"rate": args.rate, "concurrency": args.concurrency,
-                                      "warmup_seconds": args.warmup_seconds,
-                                      "measure_seconds": args.measure_seconds,
-                                      "repetitions": args.repetitions,
-                                      "latency_target_ms": args.latency_target_ms,
-                                      "max_failure_rate": args.max_failure_rate}
+        command = [sys.executable, str(WRITE_LOAD if args.workload == "write" else LOAD),
+                   "--store", args.store, "--input", str(args.input),
+                   "--output", str(output / "load"),
+                   "--rate-per-second" if args.workload == "write" else "--rate", str(settings["rate"]),
+                   "--concurrency", str(settings["concurrency"]),
+                   "--warmup-seconds", str(settings["warmup_seconds"]),
+                   "--measure-seconds", str(settings["measure_seconds"]),
+                   "--repetitions", str(settings["repetitions"]),
+                   "--latency-target-ms", str(settings["latency_target_ms"]),
+                   "--max-failure-rate", str(settings["max_failure_rate"])]
+        if args.workload == "write":
+            command.extend(["--profile", str(args.write_profile)])
+        manifest["load_arguments"] = settings
+        if args.workload == "write":
+            manifest["write_profile"] = str(args.write_profile)
         if not args.no_sampler:
             sampler = Sampler(container_id, inspect["State"]["StartedAt"],
                               output / "container-metrics.jsonl", args.sample_interval)
@@ -378,25 +400,22 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--store", choices=("postgres", "couchdb"), required=True)
+    parser.add_argument("--workload", choices=("read", "write"), default="read")
+    parser.add_argument("--write-profile", type=Path, default=DEFAULT_WRITE_PROFILE)
     parser.add_argument("--input", type=Path, default=ROOT / "results/documents/storefront-v1")
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--rate", type=float, default=20.0)
-    parser.add_argument("--concurrency", type=int, default=8)
-    parser.add_argument("--warmup-seconds", type=float, default=2.0)
-    parser.add_argument("--measure-seconds", type=float, default=5.0)
-    parser.add_argument("--repetitions", type=int, default=1)
+    parser.add_argument("--rate", type=float)
+    parser.add_argument("--concurrency", type=int)
+    parser.add_argument("--warmup-seconds", type=float)
+    parser.add_argument("--measure-seconds", type=float)
+    parser.add_argument("--repetitions", type=int)
     parser.add_argument("--sample-interval", type=float, default=1.0)
     parser.add_argument("--no-sampler", action="store_true")
-    parser.add_argument("--latency-target-ms", type=float, default=100.0)
-    parser.add_argument("--max-failure-rate", type=float, default=0.001)
+    parser.add_argument("--latency-target-ms", type=float)
+    parser.add_argument("--max-failure-rate", type=float)
     args = parser.parse_args()
-    if not math.isfinite(args.sample_interval) or args.sample_interval <= 0 or \
-       not math.isfinite(args.rate) or args.rate <= 0 or args.concurrency < 1 or \
-       not math.isfinite(args.warmup_seconds) or args.warmup_seconds < 0 or \
-       not math.isfinite(args.measure_seconds) or args.measure_seconds <= 0 or args.repetitions < 1 or \
-       not math.isfinite(args.latency_target_ms) or args.latency_target_ms <= 0 or \
-       not math.isfinite(args.max_failure_rate) or not 0 <= args.max_failure_rate <= 1:
-        parser.error("rate, concurrency, measure duration, repetitions and sample interval must be positive")
+    if not math.isfinite(args.sample_interval) or args.sample_interval <= 0:
+        parser.error("sample interval must be positive")
     output = run(args)
     print(f"{args.store}: limits checked, sampler {'disabled' if args.no_sampler else 'captured'}; "
           f"artifacts: {output}")

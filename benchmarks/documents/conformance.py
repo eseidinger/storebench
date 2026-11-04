@@ -156,7 +156,7 @@ class CouchDB:
     def close(self):
         pass
 
-    def request(self, method, path, body=None, missing_ok=False):
+    def request(self, method, path, body=None, missing_ok=False, conflict_ok=False):
         payload = canonical(body) if body is not None else None
         request = Request(self.server + path, data=payload, method=method,
                           headers={"Authorization": self.auth, "Content-Type": "application/json"})
@@ -165,6 +165,8 @@ class CouchDB:
                 return json.load(response)
         except HTTPError as error:
             if missing_ok and error.code == 404:
+                return None
+            if conflict_ok and error.code == 409:
                 return None
             raise RuntimeError(f"CouchDB HTTP {error.code}: {error.read().decode()}") from error
 

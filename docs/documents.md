@@ -2,6 +2,8 @@
 
 This executable StoreBench use case compares [Apache CouchDB](https://docs.couchdb.org/en/stable/) documents with PostgreSQL JSONB on a small, fixed product catalog. It checks functional behavior; it is **not** a performance benchmark. Direct Python and Kotlin clients are available alongside the native scripts. Larger generated datasets and the measurement runner described in the project plan remain future phases. The native CouchDB workflow uses Python's standard library to send direct, inspectable HTTP requests; it is a native API path rather than the separate Python client implementation.
 
+For proposed larger-scale scenarios, data distributions, operation mixes, and measurement rules, see the [document storage workload design](document-workloads.md).
+
 ## Requirements
 
 Docker with Compose, Python 3, and enough free resources for two containers. The Kotlin path also needs JDK 17 or newer; its Gradle Wrapper downloads Gradle 9.7.1 on first use. The example uses PostgreSQL 17.6 and CouchDB 3.5.1. Both expose ports on localhost only: PostgreSQL on 5433 and CouchDB HTTP on 5985. Credentials are fixed for local development (`storebench` / `storebench_local`); do not expose these services externally. CouchDB is configured as a single node during `seed` using its [setup API](https://docs.couchdb.org/en/stable/setup/single-node.html).

@@ -81,4 +81,18 @@ python3 scripts/generate_document_workload.py
 
 Standardziel ist `results/documents/storefront-v1/`; mit `--profile` und `--output` lassen sich Eingabeprofil und Zielverzeichnis angeben. `documents.jsonl` enthält die Anfangsdokumente. `requests.jsonl` enthält die geordnete Anfragefolge mit Eingaben und erwarteten Ergebnissen. `manifest.json` hält Profil-, Generator- und Datei-Prüfsummen sowie tatsächlich erzeugte Verteilungen und Trefferzahlen fest. Das Ergebnisverzeichnis wird nicht versioniert. Die sechs vorhandenen Smoke-Test-Produkte und deren Generator bleiben unverändert.
 
-Die Erwartungswerte in `requests.jsonl` gelten für die **serielle** Ausführung in der angegebenen Reihenfolge. Sie dienen der Konformitätsprüfung. Für spätere parallele Messungen müssen konkurrierende Zustandsänderungen anhand von Invarianten und zulässigen Ergebnissen geprüft werden; die seriellen Einzelwerte dürfen dort nicht ungeprüft als Sollwerte gelten. Das aktuelle Profil enthält keine Löschanfragen (P8 = 0); der Generator weist Profile mit P8-Anteil ab. Indizes für gleichwertige Seitenabfragen, Nebenläufigkeitsprüfungen und Mess-Runner sind noch umzusetzen, bevor diese Eingaben Benchmark-Ergebnisse liefern können.
+Die Erwartungswerte in `requests.jsonl` gelten für die **serielle** Ausführung in der angegebenen Reihenfolge. Sie dienen der Konformitätsprüfung. Für spätere parallele Messungen müssen konkurrierende Zustandsänderungen anhand von Invarianten und zulässigen Ergebnissen geprüft werden; die seriellen Einzelwerte dürfen dort nicht ungeprüft als Sollwerte gelten. Das aktuelle Profil enthält keine Löschanfragen (P8 = 0); der Generator weist Profile mit P8-Anteil ab.
+
+## Serielle Konformitätsausführung
+
+Der [Konformitäts-Runner](../benchmarks/documents/conformance.py) lädt `documents.jsonl` und spielt alle 1.000 Anfragen in Reihenfolge gegen PostgreSQL und CouchDB ab. Vor dem Zugriff prüft er die Datei-Prüfsummen. Nach jeder Operation vergleicht er IDs, vollständige logische Dokumente oder Kategorieübersichten mit den Erwartungswerten; beim ersten Fehler bricht er mit Sequenznummer ab. Er verwendet eine eigene PostgreSQL-Tabelle `benchmark_products` und eine eigene CouchDB-Datenbank `benchmark_products`, damit der sechs Produkte umfassende Funktionstest unberührt bleibt. `all` setzt ausschließlich diese Benchmark-Namensräume zurück.
+
+```bash
+python3 scripts/generate_document_workload.py
+scripts/documents.sh up
+python3 -m venv .venv
+.venv/bin/pip install -r implementations/python/documents/requirements.txt
+.venv/bin/python benchmarks/documents/conformance.py all --store both
+```
+
+`--store postgres` oder `--store couchdb` wählt einen Store; `--input` wählt ein anderes Verzeichnis mit Manifest und JSONL-Dateien. `seed` lädt nur die Anfangsdokumente, `replay` spielt nur den Trace ab und `all` führt beides aus. Vor jeder Wiederholung von `replay` ist erneut `seed` nötig, da P5–P7 den Bestand ändern. Die CouchDB-Filter verwenden eine serverseitige Sortierung mit einem ausdrücklich benannten Index auf Kategorie und ID; dieser Index kann bei seltenen Attributfiltern viele Dokumente prüfen. Seine Selektivität und alternative Indizes sind Gegenstand der späteren Performancearbeit. Dieser Runner prüft **Korrektheit**, er misst keine Latenzen oder Durchsatzwerte. Nebenläufigkeitsprüfungen und ein Mess-Runner fehlen noch.

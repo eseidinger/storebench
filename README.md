@@ -31,6 +31,8 @@ The first runs will use local Docker Compose directly. Results may later inform 
 
 Executable slices now include [documents](docs/documents.md), [graph package dependencies](docs/graph.md), [similar documents with vectors](docs/vector.md), [full-text search](docs/search.md), and [blob storage](docs/blob.md). They provide local containers, native scripts or direct API requests, and functional checks. The graph slice covers Apache AGE, Neo4j, and HugeGraph with native scripts and direct Python/Kotlin clients; the relational PostgreSQL graph baseline remains planned.
 
+The proposed [document storage workload design](docs/document-workloads.md) defines larger data profiles and scenario mixes for future measurements.
+
 A qualitative comparison of the direct clients is available in [Developer experience: PostgreSQL and specialized stores](docs/developer-experience.md).
 
 Interactive database tools and built-in web interfaces are listed in [local store access](docs/access.md).

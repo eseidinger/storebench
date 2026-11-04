@@ -171,10 +171,14 @@ The [write runner](../benchmarks/documents/write_load.py) uses the same initial 
 
 Each write profile also contains the rate/concurrency matrix and paired sampler checks. Its `seed` determines both the deterministic request trace and reproducible store ordering in the experiment. Scalar rate and concurrency are defaults for a direct orchestrator run; the experiment uses the matrix values instead. Warmup, measurement duration, repetitions and quality limits apply to both commands. The experiment controller records one profile copy as `plan.json`. A full experiment has 62 runs and at least 93 minutes of warmup and measurement, plus resets and preparation.
 
+For the full series, run both profiles through the experiment controller. Each command tests both stores at every matrix point and runs the paired sampler checks:
+
 ```bash
 .venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/catalog-maintenance-write-v1.json
 .venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/contested-stock-write-v1.json
 ```
+
+Optional for a targeted run or debugging: the orchestrator uses only the scalar default point for each profile and store (`20/s, 8 workers` for catalog maintenance; `80/s, 8 workers` for contested stock). Both points are already included in the experiments above, so the following loop is not needed in addition to the full series:
 
 ```bash
 for profile in catalog-maintenance-write-v1 contested-stock-write-v1; do
@@ -200,3 +204,5 @@ bash scripts/run_document_quick_experiments.sh
 ```
 
 The script generates the small fixture and runs all three experiments. A local verification took about 86 seconds end to end; actual time depends on the host and stores. All six store runs passed execution and quality checks. These profiles check execution and logical results. One point and one repetition cannot establish a reliable capacity limit or sampler overhead.
+
+The [analysis notebook](../notebooks/document-experiments.ipynb) automatically reads complete `report.json` files. Install its dependencies with `.venv/bin/pip install -r notebooks/requirements.txt`, then open it with that Python kernel from the repository and run the cells in order. It shows individual runs, matrix medians, throughput, p95, write outcomes, resources, and optional raw samples from one run. Select specific experiment IDs in its first code cell when needed.

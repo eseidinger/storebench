@@ -171,10 +171,14 @@ Der [Schreib-Runner](../benchmarks/documents/write_load.py) verwendet denselben 
 
 Jedes Schreibprofil enthält zugleich die Matrix aus Raten und Workern sowie die Sampler-Vergleichspaare. Der `seed` bestimmt sowohl den deterministischen Schreibstrom als auch die reproduzierbare Store-Reihenfolge im Experiment. Die skalaren Werte für Rate und Workerzahl gelten für den direkten Orchestrator-Lauf; im Experiment werden stattdessen die Matrixwerte verwendet. Warm-up, Messdauer, Wiederholungen und Qualitätsgrenzen gelten für beide Aufrufarten. Der Experiment-Controller speichert eine Kopie des Profils als `plan.json` im Ergebnisordner. Ein vollständiges Experiment umfasst 62 Einzelläufe und mindestens 93 Minuten Warm-up und Messung zuzüglich Reset und Vorbereitung.
 
+Für die vollständige Versuchsreihe beide Profile mit dem Experiment-Controller ausführen. Jeder Aufruf testet beide Stores mit allen Matrixpunkten und Sampler-Paaren:
+
 ```bash
 .venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/catalog-maintenance-write-v1.json
 .venv/bin/python benchmarks/documents/experiment.py --plan workloads/documents/profiles/contested-stock-write-v1.json
 ```
+
+Optional für gezielte Einzelmessungen oder Fehlersuche: Der Orchestrator führt je Profil und Store nur den skalaren Standardpunkt aus (`20/s, 8 Worker` für Katalogpflege; `80/s, 8 Worker` für umkämpften Bestand). Beide Punkte sind bereits in den obigen Experimenten enthalten. Die folgende Schleife muss daher für eine vollständige Versuchsreihe nicht zusätzlich ausgeführt werden:
 
 ```bash
 for profile in catalog-maintenance-write-v1 contested-stock-write-v1; do
@@ -200,3 +204,5 @@ bash scripts/run_document_quick_experiments.sh
 ```
 
 Das Skript erzeugt das kleine Fixture und führt alle drei Experimente aus. In einem lokalen Prüflauf benötigte die gesamte Folge etwa 86 s; die tatsächliche Dauer hängt von Host und Stores ab. Alle sechs Store-Läufe bestanden dabei die Ausführungs- und Qualitätsprüfungen. Die Schnellprofile prüfen den Ablauf und die fachlichen Ergebnisse; mit einem Messpunkt und einer Wiederholung liefern sie keine belastbare Kapazitätsgrenze oder Sampler-Overhead-Messung.
+
+Das [Auswertungs-Notebook](../notebooks/document-experiments.ipynb) liest vollständige `report.json`-Dateien automatisch ein. Die Abhängigkeiten lassen sich mit `.venv/bin/pip install -r notebooks/requirements.txt` installieren; anschließend das Notebook mit diesem Python-Kernel aus dem Repository öffnen und die Zellen der Reihe nach ausführen. Es zeigt Einzelläufe, Matrixmediane, Durchsatz, p95, Schreibresultate, Ressourcen und auf Wunsch Rohsamples eines Laufs. Oben im Notebook lassen sich bestimmte Experiment-IDs auswählen.

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "input_profile": "storefront-v1",
+  "seed": 20261104,
+  "concurrencies": [1, 8, 32],
+  "rates_per_second": [5, 20, 80],
+  "repetitions": 3,
+  "warmup_seconds": 30,
+  "measure_seconds": 60,
+  "latency_target_ms": 100,
+  "max_failure_rate": 0.001,
+  "sample_interval_seconds": 1,
+  "max_sample_interval_factor": 2.5,
+  "sampler_overhead": {
+    "concurrency": 8,
+    "rate_per_second": 20,
+    "pairs": 2
+  }
+}

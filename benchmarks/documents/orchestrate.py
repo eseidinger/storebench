@@ -264,7 +264,8 @@ def run(args):
                               f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{args.store}-{uuid.uuid4().hex[:8]}")
     output.mkdir(parents=True, exist_ok=False)
     manifest = {"kind": "host-orchestrated-document-load", "store": args.store,
-                "started_utc": utc_now(), "sampler_interval_seconds": args.sample_interval,
+                "started_utc": utc_now(), "sampler_enabled": not args.no_sampler,
+                "sampler_interval_seconds": args.sample_interval if not args.no_sampler else None,
                 "host": host_snapshot(output), "status": "running"}
     started_container = False
     sampler = None
@@ -291,41 +292,56 @@ def run(args):
                    "--concurrency", str(args.concurrency),
                    "--warmup-seconds", str(args.warmup_seconds),
                    "--measure-seconds", str(args.measure_seconds),
-                   "--repetitions", str(args.repetitions)]
+                   "--repetitions", str(args.repetitions),
+                   "--latency-target-ms", str(args.latency_target_ms),
+                   "--max-failure-rate", str(args.max_failure_rate)]
         manifest["load_arguments"] = {"rate": args.rate, "concurrency": args.concurrency,
                                       "warmup_seconds": args.warmup_seconds,
                                       "measure_seconds": args.measure_seconds,
-                                      "repetitions": args.repetitions}
-        sampler = Sampler(container_id, inspect["State"]["StartedAt"],
-                          output / "container-metrics.jsonl", args.sample_interval)
-        sampler.start()
+                                      "repetitions": args.repetitions,
+                                      "latency_target_ms": args.latency_target_ms,
+                                      "max_failure_rate": args.max_failure_rate}
+        if not args.no_sampler:
+            sampler = Sampler(container_id, inspect["State"]["StartedAt"],
+                              output / "container-metrics.jsonl", args.sample_interval)
+            sampler.start()
         process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True)
-        sampler.client_pid = process.pid
+        if sampler is not None:
+            sampler.client_pid = process.pid
         stdout, stderr = process.communicate()
         (output / "load.stdout.txt").write_text(stdout)
         (output / "load.stderr.txt").write_text(stderr)
         manifest["load_exit_code"] = process.returncode
-        sampler.stop()
-        restart_count = sampler.restart_count
-        sampler = None
+        if sampler is not None:
+            sampler.stop()
+            restart_count = sampler.restart_count
+            sampler = None
         manifest["load_manifest_sha256"] = sha256_file(output / "load/manifest.json") \
             if (output / "load/manifest.json").exists() else None
         load_manifest = json.loads((output / "load/manifest.json").read_text()) \
             if manifest["load_manifest_sha256"] else {"repetitions": []}
-        rows = annotate_samples(output / "container-metrics.jsonl", load_manifest["repetitions"])
-        manifest["resource_samples_sha256"] = sha256_file(output / "container-metrics.jsonl")
-        manifest["resource_sample_count"] = sum(row["role"] == "store" and row["status"] == "ok" for row in rows)
-        manifest["resource_sample_errors"] = sum(row["role"] == "store" and row["status"] == "error" for row in rows)
-        manifest["client_sample_errors"] = sum(row["role"] == "client" and row["status"] == "error" for row in rows)
-        manifest["container_restarts"] = restart_count
-        manifest["actual_sample_intervals"] = sample_interval_summary(rows)
-        manifest["resource_summary"] = resource_summary(rows)
-        manifest["status"] = "passed" if process.returncode == 0 and \
-            not manifest["resource_sample_errors"] and not manifest["client_sample_errors"] and \
-            not manifest["container_restarts"] and \
-            all(manifest["resource_summary"][role]["cpu_cores_mean"] is not None
-                for role in ("store", "client")) else "incomplete"
+        final_inspect = docker_get(f"/containers/{quote(container_id)}/json")
+        container_changed = (final_inspect["State"]["StartedAt"] != inspect["State"]["StartedAt"] or
+                             not final_inspect["State"]["Running"])
+        manifest["container_restarts"] = int(container_changed)
+        if not args.no_sampler:
+            rows = annotate_samples(output / "container-metrics.jsonl", load_manifest["repetitions"])
+            manifest["resource_samples_sha256"] = sha256_file(output / "container-metrics.jsonl")
+            manifest["resource_sample_count"] = sum(row["role"] == "store" and row["status"] == "ok" for row in rows)
+            manifest["resource_sample_errors"] = sum(row["role"] == "store" and row["status"] == "error" for row in rows)
+            manifest["client_sample_errors"] = sum(row["role"] == "client" and row["status"] == "error" for row in rows)
+            manifest["container_restarts"] = max(restart_count, int(container_changed))
+            manifest["actual_sample_intervals"] = sample_interval_summary(rows)
+            manifest["resource_summary"] = resource_summary(rows)
+            manifest["status"] = "passed" if process.returncode == 0 and \
+                not manifest["resource_sample_errors"] and not manifest["client_sample_errors"] and \
+                not manifest["container_restarts"] and \
+                all(manifest["resource_summary"][role]["cpu_cores_mean"] is not None
+                    for role in ("store", "client")) else "incomplete"
+        else:
+            manifest["status"] = "passed" if process.returncode == 0 and \
+                load_manifest.get("status") == "passed" and not container_changed else "incomplete"
     except Exception as error:
         manifest["status"] = "failed"
         manifest["error"] = str(error)
@@ -370,14 +386,20 @@ def main():
     parser.add_argument("--measure-seconds", type=float, default=5.0)
     parser.add_argument("--repetitions", type=int, default=1)
     parser.add_argument("--sample-interval", type=float, default=1.0)
+    parser.add_argument("--no-sampler", action="store_true")
+    parser.add_argument("--latency-target-ms", type=float, default=100.0)
+    parser.add_argument("--max-failure-rate", type=float, default=0.001)
     args = parser.parse_args()
     if not math.isfinite(args.sample_interval) or args.sample_interval <= 0 or \
        not math.isfinite(args.rate) or args.rate <= 0 or args.concurrency < 1 or \
        not math.isfinite(args.warmup_seconds) or args.warmup_seconds < 0 or \
-       not math.isfinite(args.measure_seconds) or args.measure_seconds <= 0 or args.repetitions < 1:
+       not math.isfinite(args.measure_seconds) or args.measure_seconds <= 0 or args.repetitions < 1 or \
+       not math.isfinite(args.latency_target_ms) or args.latency_target_ms <= 0 or \
+       not math.isfinite(args.max_failure_rate) or not 0 <= args.max_failure_rate <= 1:
         parser.error("rate, concurrency, measure duration, repetitions and sample interval must be positive")
     output = run(args)
-    print(f"{args.store}: resources and limits captured; artifacts: {output}")
+    print(f"{args.store}: limits checked, sampler {'disabled' if args.no_sampler else 'captured'}; "
+          f"artifacts: {output}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 """Check deterministic write traces, bounded conflicts and final-state invariants."""
 import copy
+import json
+import math
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from benchmarks.documents.write_load import execute_write, make_requests, validate_profile, verify_final
@@ -12,6 +15,21 @@ def product(product_id, stock=2):
 
 
 class WriteLoadTest(unittest.TestCase):
+    def test_versioned_profiles_cover_their_phase_durations(self):
+        root = Path(__file__).resolve().parents[1]
+        profiles = root / "workloads/documents/profiles"
+        for name in ("catalog-maintenance-write-v1", "contested-stock-write-v1"):
+            with self.subTest(profile=name):
+                profile = json.loads((profiles / f"{name}.json").read_text())
+                documents = [product(f"p{number:06d}") for number in range(100)]
+                validate_profile(profile, documents)
+                offered = math.ceil(profile["rate_per_second"] * max(profile["warmup_seconds"],
+                                                                     profile["measure_seconds"]))
+                self.assertGreaterEqual(profile["request_count"], offered)
+                self.assertEqual((profile["warmup_seconds"], profile["measure_seconds"],
+                                  profile["repetitions"]), (30, 60, 3))
+                self.assertEqual(len(make_requests(profile, documents)), profile["request_count"])
+
     def test_trace_is_deterministic_and_uses_reserved_create_ids(self):
         profile = {"version": 1, "name": "test", "seed": 7, "input_profile": "storefront-v1",
                    "request_count": 200, "operation_percent": {"P5": 20, "P6": 30, "P7": 50},
